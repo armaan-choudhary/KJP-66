@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import os
 import sys
 import argparse
@@ -44,3 +45,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+=======
+print("Foooooooooo!!!!!!!!!!!!!")
+>>>>>>> 950f3ab25695582ec6f465c152c56cbd7303119c
