@@ -19,8 +19,9 @@ class EarlyExitHead(nn.Module):
 class EarlyExitResNet(nn.Module):
     """
     Dynamically compresses inference depth based on input complexity.
+    Optimized for ImageNet (1000 classes).
     """
-    def __init__(self, base_model, num_classes=365, threshold=0.85):
+    def __init__(self, base_model, num_classes=1000, threshold=0.85):
         super(EarlyExitResNet, self).__init__()
         self.threshold = threshold
         
