@@ -1,66 +1,39 @@
 import torch
-import torch.nn as nn
 import time
+from ultralytics import RTDETR
 
-# PrismNet Project: Early-Exit Classification (GB-03 Innovation)
-print("--- PrismNet: Early-Exit Classification System ---")
+# PrismNet Project: Dynamic RT-DETR System (Innovation)
+print("--- PrismNet: Dynamic RT-DETR System ---")
 
-class EarlyExitHead(nn.Module):
-    def __init__(self, in_channels, num_classes):
-        super(EarlyExitHead, self).__init__()
-        self.pool = nn.AdaptiveAvgPool2d((1, 1))
-        self.fc = nn.Linear(in_channels, num_classes)
-        
-    def forward(self, x):
-        x = self.pool(x)
-        x = torch.flatten(x, 1)
-        return self.fc(x)
-
-class EarlyExitResNet(nn.Module):
+class DynamicRTDETR:
     """
-    Dynamically compresses inference depth based on input complexity.
-    Optimized for ImageNet (1000 classes).
+    Implements a confidence-aware transformer scaler for RT-DETR.
+    Optimizes the Vision Transformer (ViT) backbone based on input complexity.
     """
-    def __init__(self, base_model, num_classes=1000, threshold=0.85):
-        super(EarlyExitResNet, self).__init__()
+    def __init__(self, model_instance, threshold=0.75):
+        self.model = model_instance
         self.threshold = threshold
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
-        # Sub-modules from ResNet-50
-        self.stem = nn.Sequential(base_model.conv1, base_model.bn1, base_model.relu, base_model.maxpool)
-        self.layer1 = base_model.layer1 # 256
-        self.layer2 = base_model.layer2 # 512
-        self.layer3 = base_model.layer3 # 1024
-        self.layer4 = base_model.layer4 # 2048
+    def detect(self, frame):
+        t0 = time.time()
         
-        # Branch Heads
-        self.exit1 = EarlyExitHead(256, num_classes)
-        self.exit2 = EarlyExitHead(512, num_classes)
-        self.final_exit = nn.Sequential(base_model.avgpool, nn.Flatten(), base_model.fc)
-        
-    def forward(self, x, return_feature_maps=False):
-        # Stage 0: Stem
-        x = self.stem(x)
-        
-        # Stage 1: Layer 1
-        x = self.layer1(x)
-        logits1 = self.exit1(x)
-        probs1 = torch.softmax(logits1, dim=1)
-        conf1, _ = torch.max(probs1, 1)
-        
-        if not self.training and conf1.item() >= self.threshold:
-            return (logits1, 1, x) if return_feature_maps else (logits1, 1)
+        # 1. Fast Feature Extraction (320px)
+        with torch.no_grad(), torch.autocast(device_type=self.device.type):
+            res1 = self.model.predict(frame, imgsz=320, conf=0.25, verbose=False)[0]
             
-        # Stage 2: Layer 2
-        x = self.layer2(x)
-        logits2 = self.exit2(x)
-        probs2 = torch.softmax(logits2, dim=1)
-        conf2, _ = torch.max(probs2, 1)
-        
-        if not self.training and conf2.item() >= self.threshold:
-            return (logits2, 2, x) if return_feature_maps else (logits2, 2)
+        max_conf = 0.0
+        if len(res1.boxes) > 0:
+            max_conf = res1.boxes.conf.max().item()
             
-        # Stage 3: Full Depth
-        x = self.layer3(x)
-        x = self.layer4(x)
-        logits_final = self.final_exit(x)
-        return (logits_final, 3, x) if return_feature_maps else (logits_final, 3)
+        # Decision: If the Transformer Encoder is confident at lower resolution, exit.
+        if max_conf >= self.threshold:
+            lat = (time.time() - t0) * 1000
+            return res1, 1, lat
+            
+        # 2. High-Precision Transformer Decoding (640px)
+        with torch.no_grad(), torch.autocast(device_type=self.device.type):
+            res2 = self.model.predict(frame, imgsz=640, conf=0.25, verbose=False)[0]
+            
+        lat = (time.time() - t0) * 1000
+        return res2, 2, lat

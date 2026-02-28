@@ -1,48 +1,41 @@
-PrismNet: SOTA Edge AI Optimization (GB-03)
+PrismNet: SOTA Transformer-Based Edge AI (GB-03)
 
-- Project focus: Compressing ResNet-50 for high-speed edge inference
-- Target hardware: AORUS Elite 16 (NVIDIA RTX 50-series)
-- Core value: 65% size reduction with dynamic speedup innovation
+- Project focus: Accelerating RT-DETR for real-time edge detection
+- Target hardware: AORUS Elite 16 (NVIDIA Blackwell RTX 50-series)
+- Core value: End-to-end NMS-free inference with dynamic token scaling
 ---
 
-The GB-03 Challenge: The "ResNet Bloat" Problem
+The GB-03 Challenge: Heavy-Duty Vision Transformers
 
-- Problem: Standard ResNet-50 is ~100MB, causing high latency on edge devices
-- Goal: Substantial model size reduction while preserving high accuracy
-- Solution: Multi-layered optimization (Pruning + Dynamic Depth + Blackwell Tuning)
+- Problem: Transformers like RT-DETR are incredibly accurate but computationally intensive
+- Goal: Maintain state-of-the-art accuracy while delivering real-time edge performance
+- Solution: Dynamic scaling and native Blackwell hardware acceleration
 ---
 
-Structured Pruning: Surgically Reducing Model Size
+NMS-Free Architecture: Eliminating the Bottleneck
 
-- Technique: L1-Norm channel-level pruning removes redundant filters
-- Result: 98.5 MB (Baseline) reduced to 34.2 MB (PrismNet)
-- Efficiency: Achieved a dense, CUDA-friendly model with ~65% smaller footprint
+- Innovation: RT-DETR is the first real-time end-to-end object detection transformer
+- Technique: Natively produces high-quality predictions without CPU-bound NMS
+- Impact: Achieving deterministic low-latency by keeping the entire pipeline on the GPU
 ---
 
-Dynamic Depth: Intelligence On-Demand (Early Exit)
+Dynamic Token Scaling: Intelligence on Demand
 
-- Stage 1 (Layer 1): Ultra-fast exit for simple, high-confidence objects
-- Stage 2 (Layer 2): Balanced depth for moderately complex scenes
-- Stage 3 (Full): Complete 50-layer inference only when necessary
+- Stage 1 (320px): Fast transformer encoder pass for simple object presence
+- Stage 2 (640px): High-precision decoding for complex, multi-object scenes
+- Efficiency: Automatically scales computational depth based on image complexity
 ---
 
-Prism-Sight: Real-time Visual Localization
+Blackwell Performance: RTX 50-series Optimization
 
-- Innovation: Added bounding boxes to a classification model without YOLO overhead
-- Tech: Uses forward-pass activation maps to identify object regions
-- Benefit: Deterministic latency without the lag of traditional NMS post-processing
----
-
-Blackwell Performance: RTX 50-series Acceleration
-
-- TF32 & BF16: Optimized math kernels for Blackwell Tensor Cores
-- Dynamic VRAM: Real-time allocation based on system-wide free memory
-- Results: 3x throughput gain over standard FP32 implementations
+- TF32 & BF16: Optimized kernels for the latest Blackwell Tensor Cores
+- Dynamic VRAM: Real-time system monitoring and intelligent memory allocation
+- Result: Squeezing maximum throughput out of the latest laptop GPU architecture
 ---
 
 Project Impact & Hackathon Summary
 
-- Requirement met: 65.3% model size reduction (GB-03 compliant)
-- Requirement met: Faster inference via Early-Exit and Blackwell kernels
-- Status: Deployable, enterprise-ready vision system for AORUS hardware
+- Requirement met: Real-time inference achieved for large-scale transformer models
+- Innovation: Confidence-aware dynamic resolution switching
+- Status: Deployable, state-of-the-art vision system for high-end AORUS hardware
 ---

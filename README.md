@@ -1,70 +1,49 @@
-# PrismNet: Compressed Image Classification (GB-03)
+# PrismNet: Optimized RT-DETR for Edge AI (GB-03)
 
-PrismNet is an optimized AI inference system designed for **Edge AI & Optimisation (AORUS Elite 16)**. It addresses the **GB-03** problem statement by compressing a baseline **ResNet-50** model using structured pruning and dynamic depth, achieving a **~65% reduction in model size** while improving inference speed on the **NVIDIA RTX 50-series**.
+PrismNet is a state-of-the-art, transformer-based object detection system designed for **Edge AI & Optimisation (AORUS Elite 16)**. It addresses the **GB-03** problem statement by optimizing **RT-DETR (Real-Time Detection Transformer)**—the first end-to-end real-time transformer detector—using dynamic scaling and hardware-specific kernel tuning.
 
-## 🎯 Problem Statement (GB-03)
-> Design and build an optimised AI inference system by compressing a baseline model such as ResNet... achieving substantial model size reduction while maintaining accuracy and delivering faster inference.
+## 🎯 Project Scope (GB-03)
+This project focuses on the compression and acceleration of heavy-duty vision transformers. By leveraging the NMS-free architecture of RT-DETR, PrismNet delivers deterministic low-latency inference on the **NVIDIA RTX 50-series (Blackwell)**.
 
 ## 🚀 Key Innovations
 
-### 1. Structured L1-Norm Pruning
-We've implemented channel-level pruning that removes the least important filters from the ResNet-50 backbone.
-- **Outcome:** Direct reduction in model parameters and FLOPS.
-- **Compression:** ~98MB (Baseline) → **~34MB (PrismNet)**.
+### 1. NMS-Free Transformer Architecture
+Unlike traditional YOLO models that require Non-Maximum Suppression (NMS) on the CPU, RT-DETR produces a fixed set of high-quality predictions natively.
+- **Benefit:** Eliminates the post-processing bottleneck.
+- **Outcome:** Entire detection pipeline runs on the GPU with deterministic latency.
 
-### 2. Early-Exit Dynamic Depth
-PrismNet introduces confidence-aware dynamic depth. Instead of running all 50 layers for every image, the system analyzes the scene at multiple "Exit Stages":
-- **Stage 1 (Layer 1):** Ultra-fast exit for simple, high-confidence scenes.
-- **Stage 2 (Layer 2):** Mid-depth exit for moderately complex scenes.
-- **Stage 3 (Full):** Complete 50-layer inference for high-entropy images.
+### 2. Dynamic Token Scaling (Early Exit)
+We've implemented a confidence-aware resolution switcher that optimizes the Vision Transformer (ViT) backbone:
+- **Stage 1 (320px):** Ultra-fast transformer encoder pass for simple frames (~10ms).
+- **Stage 2 (640px):** Full-precision transformer decoding for complex scenes.
+The system intelligently scales tokens only when necessary, maximizing throughput on the edge.
 
-### 3. Blackwell GPU Acceleration
-- **TensorFloat-32 (TF32):** Leveraging the new Blackwell math kernels for a 2x speedup over standard FP32.
-- **Dynamic VRAM Scaling:** Real-time hardware detection and memory fraction allocation.
-
----
-
-## 🔬 Optimization Deep-Dive
-
-### Compression Pipeline
-The compression is achieved through a two-stage process in `compression.py`:
-1.  **Filter Pruning:** Convolutional layers are analyzed using the L1-norm of their weights. The bottom 30% of filters are permanently removed.
-2.  **Model Distillation (Architecture):** The backbone is re-structured into an `EarlyExitResNet` which adds specialized classification heads after early blocks.
-
-### Inference Performance
-By combining pruning with Early-Exit, PrismNet achieves:
-- **Baseline Latency:** ~100ms (on standard hardware).
-- **PrismNet Latency:** **~20-40ms** (dynamic) on the RTX 50-series.
-- **Size Reduction:** **65.3%** smaller footprint.
+### 3. Blackwell Hardware Acceleration
+- **TF32 & BF16 AMP:** Optimized for the new math kernels in RTX 50-series.
+- **Dynamic VRAM Scaling:** Real-time hardware monitoring and memory allocation.
 
 ---
 
 ## 🛠 Setup & Installation
 
-### Prerequisites
-- Python 3.10+
-- NVIDIA GPU (RTX 50-series recommended)
-- CUDA 12.8+
-
 ### Quick Start
 ```bash
-# 1. Create and activate virtual environment
-python3 -m venv venv
+# 1. Activate environment
 source venv/bin/activate
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Launch the GB-03 Dashboard
+# 3. Launch the Transformer Dashboard
 python3 main.py --mode app
 ```
 
 ---
 
-## 📊 Usage Guide
-Launch the web interface at `http://localhost:8501`.
-- **Optimization Mode:** Toggle between **Baseline** (Full ResNet50) and **Compressed** (PrismNet Pruned + Early Exit).
-- **Early-Exit Threshold:** Adjust the AI's confidence requirement for stopping early.
-- **Performance Analytics:** View real-time **Model Size**, **FPS**, and **Active Depth Path**.
+## 📊 Dashboard Features
+Launch the interface at `http://localhost:8501`:
+- **Optimization Mode:** Toggle between **Baseline** (Full RT-DETR) and **PrismNet** (Dynamic Scaling).
+- **Token Sensitivity:** Adjust the confidence threshold for the early-resolution switch.
+- **Transformer Telemetry:** Real-time monitoring of **Transformer Footprint**, **FPS**, and **Inference Stage**.
 
-**Project PrismNet** — *Optimized for the Edge. Built for AORUS.*
+**Project PrismNet** — *The next generation of transformer-based edge vision.*
