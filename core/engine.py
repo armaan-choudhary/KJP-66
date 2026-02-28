@@ -1,5 +1,6 @@
 import torch
 from ultralytics import RTDETR
+from core.config import PRECISION_BASELINE
 
 def get_rtdetr_engine(model_path):
     """
@@ -7,7 +8,7 @@ def get_rtdetr_engine(model_path):
     """
     if torch.cuda.is_available():
         # Baseline: Force true FP32 math (No TF32)
-        torch.set_float32_matmul_precision('highest')
+        torch.set_float32_matmul_precision(PRECISION_BASELINE)
         torch.backends.cudnn.benchmark = True
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

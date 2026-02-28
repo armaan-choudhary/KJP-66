@@ -16,12 +16,12 @@ class TestDashboardRenderingLogic(unittest.TestCase):
         mock_getsize.return_value = 64 * (1024 ** 2)
         
         # Test baseline logic
-        size = get_model_mb('rtdetr-l.pt')
+        size = get_model_mb('rtdetr-x.pt')
         
         # Verify it returns exactly 64.0
         self.assertEqual(size, 64.0)
-        mock_exists.assert_called_with('rtdetr-l.pt')
-        mock_getsize.assert_called_with('rtdetr-l.pt')
+        mock_exists.assert_called_with('rtdetr-x.pt')
+        mock_getsize.assert_called_with('rtdetr-x.pt')
 
     @patch('os.path.exists')
     @patch('os.path.getsize')

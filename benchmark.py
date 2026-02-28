@@ -5,6 +5,7 @@ import numpy as np
 from core.engine import get_rtdetr_engine
 from core.resolver import DynamicRTDETR
 from utils.hardware import allocate_vram
+import core.config as cfg
 
 # PrismNet Project: Final Transformer Benchmark Suite
 print("--- PrismNet: RT-DETR Performance Benchmark ---")
@@ -14,16 +15,16 @@ allocate_vram()
 
 def benchmark_rtdetr(model, iterations=30):
     print(f"Benchmarking RT-DETR on {device}...")
-    dummy = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
+    dummy = np.random.randint(0, 255, (cfg.STAGE2_MAX_RES, cfg.STAGE2_MAX_RES, 3), dtype=np.uint8)
     
     # Warmup
     for _ in range(5):
-        _ = model.predict(dummy, imgsz=640, verbose=False)
+        _ = model.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, verbose=False)
         
     t0 = time.time()
     with torch.no_grad():
         for _ in range(iterations):
-            _ = model.predict(dummy, imgsz=640, verbose=False)
+            _ = model.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, verbose=False)
             
     lat = (time.time() - t0) / iterations * 1000
     print(f"Avg Latency: {lat:.2f}ms | FPS: {1000/lat:.1f}")
@@ -33,25 +34,25 @@ def run_full_benchmark():
     results = {}
     
     # 1. Load Model
-    shared_rtdetr = get_rtdetr_engine('rtdetr-l.pt')
+    shared_rtdetr = get_rtdetr_engine(cfg.MODEL_BASE)
     dynamic = DynamicRTDETR(shared_rtdetr)
-    dummy = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
+    dummy = np.random.randint(0, 255, (cfg.STAGE2_MAX_RES, cfg.STAGE2_MAX_RES, 3), dtype=np.uint8)
     
-    # 2. Benchmark Baseline (Fixed 640px)
-    print("\n[1/3] Benchmarking Baseline (Full Decoder)...")
+    # 2. Benchmark Baseline (Fixed Max Res)
+    print(f"\n[1/3] Benchmarking Baseline (Fixed {cfg.STAGE2_MAX_RES}px)...")
     t0 = time.time()
     for _ in range(30):
-        _ = shared_rtdetr.predict(dummy, imgsz=640, verbose=False)
+        _ = shared_rtdetr.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, verbose=False)
     lat_base = (time.time() - t0) / 30 * 1000
-    results["Baseline (640px)"] = {"latency": round(lat_base, 2), "fps": round(1000/lat_base, 2)}
+    results[f"Baseline ({cfg.STAGE2_MAX_RES}px)"] = {"latency": round(lat_base, 2), "fps": round(1000/lat_base, 2)}
     
-    # 3. Benchmark Turbo (Fixed 320px)
-    print("\n[2/3] Benchmarking Turbo (Encoder Only)...")
+    # 3. Benchmark Turbo (Fixed Min Res)
+    print(f"\n[2/3] Benchmarking Turbo (Fixed {cfg.STAGE1_MIN_RES}px)...")
     t0 = time.time()
     for _ in range(30):
-        _ = shared_rtdetr.predict(dummy, imgsz=320, verbose=False)
+        _ = shared_rtdetr.predict(dummy, imgsz=cfg.STAGE1_MIN_RES, verbose=False)
     lat_turbo = (time.time() - t0) / 30 * 1000
-    results["Turbo (320px)"] = {"latency": round(lat_turbo, 2), "fps": round(1000/lat_turbo, 2)}
+    results[f"Turbo ({cfg.STAGE1_MIN_RES}px)"] = {"latency": round(lat_turbo, 2), "fps": round(1000/lat_turbo, 2)}
     
     # 4. PrismNet Optimized (Dynamic)
     print("\n[3/3] Benchmarking PrismNet Dynamic Scaling...")

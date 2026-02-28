@@ -1,6 +1,8 @@
 import os
 import argparse
 
+import core.config as cfg
+
 # PrismNet Project: Unified Entry Point
 print("--- PrismNet: On-Device RT-DETR Optimization ---")
 
@@ -13,7 +15,7 @@ def main():
     if args.mode == "baseline":
         from core.engine import get_rtdetr_engine
         from benchmark import benchmark_rtdetr
-        model = get_rtdetr_engine('rtdetr-l.pt')
+        model = get_rtdetr_engine(cfg.MODEL_BASE)
         benchmark_rtdetr(model)
         
     elif args.mode == "early-exit":
@@ -22,9 +24,9 @@ def main():
         from core.resolver import DynamicRTDETR
         import numpy as np
         
-        shared_rtdetr = get_rtdetr_engine('rtdetr-l.pt')
+        shared_rtdetr = get_rtdetr_engine(cfg.MODEL_BASE)
         dynamic = DynamicRTDETR(shared_rtdetr)
-        dummy = np.zeros((640, 640, 3), dtype=np.uint8)
+        dummy = np.zeros((cfg.STAGE2_MAX_RES, cfg.STAGE2_MAX_RES, 3), dtype=np.uint8)
         res, stage, lat, res_str = dynamic.detect(dummy)
         print(f"Dynamic Test: Stage {stage} | Resolution: {res_str} | Latency: {lat:.2f}ms")
         

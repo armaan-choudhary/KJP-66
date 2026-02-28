@@ -10,16 +10,17 @@ from core.resolver import DynamicRTDETR
 from utils.hardware import allocate_vram, get_gpu_status, get_system_cam, get_model_mb
 from utils.compression import quantize_state_dict, load_quantized_state
 from dashboard.styles import apply_prism_theme, render_badge
+import core.config as cfg
 
 # 1. SETUP
-st.set_page_config(page_title="PrismNet SOTA", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title=cfg.DASHBOARD_TITLE, page_icon=cfg.DASHBOARD_ICON, layout="wide", initial_sidebar_state="expanded")
 apply_prism_theme()
 allocate_vram()
 
 @st.cache_resource
 def load_system_core():
-    base_path = 'rtdetr-l.pt'
-    opt_path = 'prismnet_optimised.pt'
+    base_path = cfg.MODEL_BASE
+    opt_path = cfg.MODEL_OPTIMIZED
     
     # Load Baseline
     base_engine = get_rtdetr_engine(base_path)
@@ -52,8 +53,8 @@ def main():
         render_badge()
         st.markdown("---")
         mode = st.radio("SELECT PIPELINE", ["Baseline (Unoptimized)", "PrismNet (Optimized)"], index=1)
-        thresh = st.slider("TOKEN SENSITIVITY", 0.4, 0.95, 0.75)
-        cam_id = st.number_input("CAM ID", 0, 5, 0)
+        thresh = st.slider("TOKEN SENSITIVITY", 0.4, 0.95, cfg.DEFAULT_THRESHOLD)
+        cam_id = st.number_input("CAM ID", 0, 5, cfg.DEFAULT_CAM_ID)
         if st.button("RELOAD SYSTEM", use_container_width=True):
             st.cache_resource.clear(); st.rerun()
 
@@ -92,7 +93,7 @@ def main():
             if "Baseline" in mode:
                 res, stage, lat, res_str = baseline_res.detect(frame)
                 path_txt = f"S{stage} | {res_str} (RAW)"
-                active_size = 124.5 # Full FP32
+                active_size = get_model_mb(cfg.MODEL_BASE)
             else:
                 res, stage, lat, res_str = prism_res.detect(frame)
                 path_txt = f"S{stage} | {res_str} (PRISM)"
@@ -109,12 +110,12 @@ def main():
             m_lat_num.markdown(f'<p class="m-value" style="color:#4ade80;">{lat:.1f} MS</p>', unsafe_allow_html=True)
             
             curr = time.time()
-            if curr - last_ui >= 0.3:
+            if curr - last_ui >= cfg.UI_UPDATE_INTERVAL:
                 a_fps = sum(fps_buf)/len(fps_buf) if fps_buf else 0
                 a_lat = sum(lat_buf)/len(lat_buf) if lat_buf else 0
                 fps_hist = pd.concat([fps_hist, pd.DataFrame({"FPS": [a_fps]})], ignore_index=True)
                 lat_hist = pd.concat([lat_hist, pd.DataFrame({"Latency": [a_lat]})], ignore_index=True)
-                if len(fps_hist) > 100:
+                if len(fps_hist) > cfg.HISTORY_LIMIT:
                     fps_hist = fps_hist.iloc[1:]; lat_hist = lat_hist.iloc[1:]
                 fps_chart.line_chart(fps_hist, height=80, use_container_width=True)
                 lat_chart.line_chart(lat_hist, height=80, use_container_width=True)
@@ -125,8 +126,8 @@ def main():
             m_gpu.markdown(f'<div class="metric-box"><p class="m-label">GPU VRAM / LOAD</p><p class="m-value">{used_v:.0f}MB / {load}%</p></div>', unsafe_allow_html=True)
             m_ram.markdown(f'<div class="metric-box"><p class="m-label">SYSTEM RAM</p><p class="m-value">{ram_p}%</p></div>', unsafe_allow_html=True)
             
-            h_col = "#4ade80" if ram_p < 85 else "#f87171"
-            m_status.markdown(f'<div style="background:#1a212a; padding:10px; border-radius:8px; border-left:4px solid {h_col};"><p class="m-label">Health</p><span style="color:{h_col}; font-weight:bold; font-size:0.9rem;">{"OPTIMAL" if ram_p < 85 else "CRITICAL"}</span></div>', unsafe_allow_html=True)
+            h_col = "#4ade80" if ram_p < cfg.RAM_CRITICAL_THRESHOLD else "#f87171"
+            m_status.markdown(f'<div style="background:#1a212a; padding:10px; border-radius:8px; border-left:4px solid {h_col};"><p class="m-label">Health</p><span style="color:{h_col}; font-weight:bold; font-size:0.9rem;">{"OPTIMAL" if ram_p < cfg.RAM_CRITICAL_THRESHOLD else "CRITICAL"}</span></div>', unsafe_allow_html=True)
 
             if len(res.boxes) > 0:
                 names = [res.names[int(b.cls[0].item())].upper() for b in res.boxes[:3]]

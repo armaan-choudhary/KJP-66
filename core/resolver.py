@@ -1,11 +1,12 @@
 import torch
 import time
+from core.config import DEFAULT_THRESHOLD, STAGE1_MIN_RES, STAGE2_MAX_RES, DETECTION_CONF, MODEL_STRIDE, PRECISION_BASELINE, PRECISION_OPTIMIZED
 
 class DynamicRTDETR:
     """
     Resolution-Aware Dynamic Inference Resolver.
     """
-    def __init__(self, model_instance, threshold=0.75, is_optimized=True):
+    def __init__(self, model_instance, threshold=DEFAULT_THRESHOLD, is_optimized=True):
         self.model = model_instance
         self.threshold = threshold
         self.is_optimized = is_optimized
@@ -21,23 +22,23 @@ class DynamicRTDETR:
         aspect = w / h
         
         # Calculate Resolutions
-        s1_h = max(320, (h // 2 // 32) * 32)
-        s1_w = int((s1_h * aspect // 32) * 32)
-        s2_h = min(640, (h // 32) * 32)
-        s2_w = int((s2_h * aspect // 32) * 32)
+        s1_h = max(STAGE1_MIN_RES, (h // 2 // MODEL_STRIDE) * MODEL_STRIDE)
+        s1_w = int((s1_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
+        s2_h = min(STAGE2_MAX_RES, (h // MODEL_STRIDE) * MODEL_STRIDE)
+        s2_w = int((s2_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
         
         # Stage 1: Turbo Scan
         if self.is_optimized:
             # OPTIMIZED: Uses INT8-Compressed Weights + Autocast FP16/BF16 Math
-            torch.set_float32_matmul_precision('high') # Allow TF32/Optimizations
+            torch.set_float32_matmul_precision(PRECISION_OPTIMIZED) # Allow TF32/Optimizations
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
-                res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
+                res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=DETECTION_CONF, verbose=False)[0]
         else:
             # BASELINE: Force Full Pure FP32 Precision (No Optimizations)
-            torch.set_float32_matmul_precision('highest')
+            torch.set_float32_matmul_precision(PRECISION_BASELINE)
             self.model.model.float()
             with torch.no_grad():
-                res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
+                res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=DETECTION_CONF, verbose=False)[0]
             
         max_conf = 0.0
         if len(res1.boxes) > 0:
@@ -52,14 +53,14 @@ class DynamicRTDETR:
             
         # Stage 2: Precision Pass
         if self.is_optimized:
-            torch.set_float32_matmul_precision('high')
+            torch.set_float32_matmul_precision(PRECISION_OPTIMIZED)
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
-                res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]
+                res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=DETECTION_CONF, verbose=False)[0]
         else:
-            torch.set_float32_matmul_precision('highest')
+            torch.set_float32_matmul_precision(PRECISION_BASELINE)
             self.model.model.float()
             with torch.no_grad():
-                res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]
+                res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=DETECTION_CONF, verbose=False)[0]
             
         if torch.cuda.is_available():
             e.record(); torch.cuda.synchronize()
