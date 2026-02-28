@@ -27,12 +27,14 @@ def quantize_model_int8(model):
     """
     print("Preparing for INT8 Quantization (Dynamic)...")
     # For Edge deployment, we use dynamic quantization for immediate size reduction
+    # Note: Dynamic quantization is most stable for nn.Linear in the current PyTorch version
     quantized_model = torch.quantization.quantize_dynamic(
-        model, {nn.Linear, nn.Conv2d}, dtype=torch.qint8
+        model, {nn.Linear}, dtype=torch.qint8
     )
     return quantized_model
 
 def get_compressed_size(file_path):
+    if not os.path.exists(file_path): return 0
     return os.path.getsize(file_path) / (1024 * 1024)
 
 if __name__ == "__main__":
@@ -46,18 +48,15 @@ if __name__ == "__main__":
     pruned_model = apply_structured_pruning(base_model)
     
     # 3. Quantize
-    # Note: On CUDA, we use AMP for speed, but for "Size Reduction" benchmarks, 
-    # we export an INT8 version.
     compressed_model = quantize_model_int8(pruned_model)
     
     # 4. Save & Compare
     torch.save(compressed_model.state_dict(), 'prismnet_compressed.pth')
     comp_size = get_compressed_size('prismnet_compressed.pth')
     
-    print("
-" + "="*30)
+    print("\n" + "="*30)
     print(f"Compression Results (GB-03)")
     print(f"Baseline: {base_size:.2f} MB")
     print(f"PrismNet: {comp_size:.2f} MB")
-    print(f"Reduction: {(1 - comp_size/base_size)*100:.1f}%")
+    print(f"Reduction: {(1 - (comp_size/base_size))*100:.1f}%")
     print("="*30)
