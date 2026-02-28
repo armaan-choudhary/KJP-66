@@ -52,14 +52,11 @@ def get_camera(index):
     cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
     return cap
 
-def get_model_size(file_path, mode):
-    """
-    Calculates size for dashboard. Baseline uses full unoptimized size (~124MB), 
-    Optimized reflects the 65% reduction (to ~34MB).
-    """
-    if "PrismNet" in mode:
-        return 34.2 # Theoretical compressed size after structured pruning
-    return 124.5 # Full unoptimized ResNet/Transformer baseline
+def get_model_size(file_path):
+    """Dynamically retrieves actual file size in MiB."""
+    if os.path.exists(file_path):
+        return os.path.getsize(file_path) / (1024**2)
+    return 0.0
 
 def main():
     with st.sidebar:
@@ -95,8 +92,9 @@ def main():
         dynamic_detector.threshold = threshold
         cap = get_camera(cam_id)
 
-    # Dynamic Size Reporting (GB-03 Innovation Focus)
-    active_size = get_model_size(opt_file, mode)
+    # Dynamic Size Reporting
+    base_file = 'rtdetr-l.pt'
+    active_size = get_model_size(opt_file) if "PrismNet" in mode else get_model_size(base_file)
 
     if cap is None:
         st.error(f"Hardware Error: Camera {cam_id} not found.")
