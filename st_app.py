@@ -6,6 +6,7 @@ import time
 from baseline import get_rtdetr_baseline
 from early_exit import DynamicRTDETR
 import os
+import psutil
 
 # PrismNet: GB-03 Optimized RT-DETR Dashboard
 st.set_page_config(page_title="PrismNet | RT-DETR Edge", page_icon="💎", layout="wide")
@@ -28,15 +29,10 @@ st.markdown("""
 
 @st.cache_resource
 def init_prismnet_detectors():
-    # 1. Load Shared RT-DETR-L Instance
     shared_rtdetr = get_rtdetr_baseline('rtdetr-l.pt')
-    # 2. Wrap in Dynamic Switcher
     dynamic = DynamicRTDETR(shared_rtdetr)
-    
-    # Warmup
     dummy = np.zeros((640, 640, 3), dtype=np.uint8)
     _ = shared_rtdetr.predict(dummy, imgsz=640, verbose=False)
-    
     return shared_rtdetr, dynamic
 
 @st.cache_resource
@@ -59,8 +55,7 @@ def main():
             st.cache_resource.clear()
             st.rerun()
 
-    # Hardware Metrics (RT-DETR Data)
-    base_size, comp_size = 124.5, 52.8 # RT-DETR-L size vs Pruned size
+    base_size, comp_size = 124.5, 52.8
     active_size = base_size if "Baseline" in mode else comp_size
 
     with st.spinner("PrismNet Syncing Transformer Hardware..."):
@@ -83,7 +78,11 @@ def main():
         m_fps = st.empty()
         m_lat = st.empty()
         m_stage = st.empty()
+        st.markdown("---")
+        st.subheader("Memory Utilization")
         m_vram = st.empty()
+        m_ram = st.empty()
+        m_report = st.empty()
 
     try:
         while True:
@@ -93,7 +92,6 @@ def main():
             frame = cv2.flip(frame, 1)
             t0 = time.time()
             
-            # Inference logic
             if "Baseline" in mode:
                 res = rtdetr_model.predict(frame, imgsz=640, verbose=False)[0]
                 stage_label = "Full ViT Decoder"
@@ -102,20 +100,29 @@ def main():
                 res, stage_num, latency = dynamic_detector.detect(frame)
                 stage_label = f"Dynamic Stage {stage_num}"
             
-            # Visualization
             plot_img = res.plot()
             feed.image(cv2.cvtColor(plot_img, cv2.COLOR_BGR2RGB), use_container_width=True)
             
-            # UI Metrics
+            # Update Metrics
             m_fps.markdown(f'<div class="status-card"><p class="metric-label">TPS (FPS)</p><p class="metric-value">{1000/latency:.1f}</p></div>', unsafe_allow_html=True)
             m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{latency:.1f}ms</p></div>', unsafe_allow_html=True)
             m_stage.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage_label}</p></div>', unsafe_allow_html=True)
             
+            # Memory Tracking
             if torch.cuda.is_available():
-                free, _ = torch.cuda.mem_get_info()
-                m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU VRAM AVAIL</p><p class="metric-value">{free/1024**2:.0f}MB</p></div>', unsafe_allow_html=True)
+                free_b, total_b = torch.cuda.mem_get_info()
+                used_vram = (total_b - free_b) / (1024**2)
+                total_vram = total_b / (1024**2)
+                m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU VRAM USED</p><p class="metric-value">{used_vram:.0f} / {total_vram:.0f} MB</p></div>', unsafe_allow_html=True)
+            
+            ram_percent = psutil.virtual_memory().percent
+            m_ram.markdown(f'<div class="status-card"><p class="metric-label">SYSTEM RAM LOAD</p><p class="metric-value">{ram_percent}%</p></div>', unsafe_allow_html=True)
 
-            # Object log
+            # Health Report
+            health = "STABLE" if ram_percent < 80 else "CRITICAL"
+            color = "#4ade80" if health == "STABLE" else "#f87171"
+            m_report.markdown(f'<div style="background:#1a212a; padding:10px; border-radius:8px; border-left:4px solid {color};"><small style="color:#8a949e;">HEALTH REPORT</small><br/><span style="color:{color}; font-weight:bold;">{health}</span></div>', unsafe_allow_html=True)
+
             if len(res.boxes) > 0:
                 names = [f"**{res.names[int(b.cls[0].item())]}** ({b.conf[0].item():.1%})" for b in res.boxes]
                 objects_log.markdown(" | ".join(names))
