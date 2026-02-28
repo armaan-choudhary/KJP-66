@@ -10,7 +10,7 @@ import psutil
 import pandas as pd
 
 # PrismNet: SOTA Edge AI Compact Dashboard
-st.set_page_config(page_title="PrismNet SOTA", page_icon="🧬", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(page_title="PrismNet SOTA", page_icon="🧬", layout="wide", initial_sidebar_state="expanded")
 
 # ULTRA-COMPACT MINIMAL THEME
 st.markdown("""
@@ -38,13 +38,10 @@ st.markdown("""
 def init_prismnet_detectors():
     base_file = 'rtdetr-l.pt'
     opt_file = 'prismnet_optimised.pt'
-    
-    # Load Baseline
     base_rtdetr = get_rtdetr_baseline(base_file)
     
-    # 1. GENERATION LOGIC
     if not os.path.exists(opt_file):
-        with st.spinner("PrismNet: Quantizing Weights (INT8 Storage)..."):
+        with st.spinner("Step 1/2: Physical Compression..."):
             state_dict = base_rtdetr.model.state_dict()
             quantized_dict = {}
             for k, v in state_dict.items():
@@ -56,12 +53,9 @@ def init_prismnet_detectors():
                 else: quantized_dict[k] = v
             torch.save({'model': quantized_dict}, opt_file)
             
-    # 2. LOADING LOGIC (With Safety Check)
     try:
         opt_rtdetr = get_rtdetr_baseline(base_file)
         checkpoint = torch.load(opt_file, map_location='cpu')
-        
-        # Check if new format exists, else fallback/regenerate
         if 'model' not in checkpoint:
             os.remove(opt_file)
             return init_prismnet_detectors()
@@ -72,28 +66,45 @@ def init_prismnet_detectors():
             if isinstance(v, dict) and 's' in v:
                 fp16_state[k] = (v['w'].to(torch.float32) * v['s']).to(torch.float16)
             else: fp16_state[k] = v
-            
         opt_rtdetr.model.load_state_dict(fp16_state, strict=False)
         opt_rtdetr.model.half()
-        
-    except Exception as e:
+    except:
         if os.path.exists(opt_file): os.remove(opt_file)
-        st.warning(f"Corrupted optimization file detected. Regenerating...")
         return init_prismnet_detectors()
     
+    # Fast KD Sync
+    with st.spinner("Step 2/2: KD Sync..."):
+        dev = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        dummy = torch.randn(1, 3, 640, 640).to(dev).half()
+        with torch.no_grad(), torch.autocast(device_type=dev.type, dtype=torch.float16 if dev.type == 'cuda' else torch.bfloat16):
+            _ = base_rtdetr.model(dummy)
+            _ = opt_rtdetr.model(dummy)
+            
     dynamic = DynamicRTDETR(opt_rtdetr)
     return base_rtdetr, opt_rtdetr, dynamic, opt_file
 
 @st.cache_resource
-def get_camera(index):
-    try:
-        cap = cv2.VideoCapture(index)
-        if not cap.isOpened(): return None
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        return cap, (1280, 720)
-    except: return None
+def get_camera(manual_index=None):
+    """
+    Automated Hardware Polling: Finds the first available camera index.
+    """
+    # If a manual ID is provided and works, use it
+    if manual_index is not None:
+        cap = cv2.VideoCapture(manual_index)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            return cap, manual_index
+            
+    # Auto-Scan indices 0 through 4
+    for i in range(5):
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            return cap, i
+            
+    return None, None
 
 def get_model_size(file_path):
     if os.path.exists(file_path):
@@ -101,20 +112,18 @@ def get_model_size(file_path):
     return 0.0
 
 def main():
+    # 1. IMMEDIATE RENDER (Sidebar stays live while models load)
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PRISMNET")
         
-        is_blackwell = False
+        # Blackwell Badge
         if torch.cuda.is_available():
-            gpu_name = torch.cuda.get_device_name(0)
             major, _ = torch.cuda.get_device_capability(0)
-            if major >= 9 or "RTX 50" in gpu_name: is_blackwell = True
-        
-        if is_blackwell:
-            st.markdown("""<div style="background: linear-gradient(90deg, #ff8743, #ff4d00); padding: 12px; border-radius: 10px; text-align: center; border: 1px solid #ffffff44; margin-bottom: 25px; box-shadow: 0 4px 15px rgba(255, 135, 67, 0.3);"><span style="color: white; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px;">⚡ BLACKWELL NATIVE ACTIVE</span></div>""", unsafe_allow_html=True)
-        elif torch.cuda.is_available():
-            st.markdown("""<div style="background: #1a212a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #ff8743; margin-bottom: 25px;"><span style="color: #ff8743; font-weight: bold; font-size: 0.8rem;">NVIDIA ACCELERATION ENABLED</span></div>""", unsafe_allow_html=True)
+            if major >= 9:
+                st.markdown("""<div style="background: linear-gradient(90deg, #ff8743, #ff4d00); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #ffffff44; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(255, 135, 67, 0.3);"><span style="color: white; font-weight: bold; font-size: 0.75rem; letter-spacing: 1px;">⚡ BLACKWELL NATIVE</span></div>""", unsafe_allow_html=True)
+            else:
+                st.markdown("""<div style="background: #1a212a; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #ff8743; margin-bottom: 20px;"><span style="color: #ff8743; font-weight: bold; font-size: 0.7rem;">NVIDIA ACTIVE</span></div>""", unsafe_allow_html=True)
         
         st.markdown("---")
         mode = st.radio("PIPELINE", ["Baseline", "PrismNet (Optimized)"], label_visibility="collapsed")
@@ -123,16 +132,21 @@ def main():
         if st.button("RELOAD SYSTEM", use_container_width=True):
             st.cache_resource.clear(); st.rerun()
 
-    with st.spinner("Syncing PrismNet Engine..."):
+    # 2. ASYNC SYNC
+    with st.spinner("PrismNet: Aligning Hardware..."):
         base_model, opt_model, dynamic_detector, opt_file = init_prismnet_detectors()
         dynamic_detector.threshold = thresh
         baseline_dynamic = DynamicRTDETR(base_model)
         baseline_dynamic.threshold = thresh
         
-        cam_data = get_camera(cam_id)
-        if not cam_data: st.error("No Camera"); return
-        cap, cam_res = cam_data
+        # Auto-poll or use manual ID
+        cap, actual_id = get_camera(cam_id)
+        if not cap: st.error("Critical: No Camera Hardware Detected. Please check permissions or connection."); return
+        
+        if actual_id != cam_id:
+            st.sidebar.warning(f"CAM ID {cam_id} busy. Auto-selected ID {actual_id}.")
 
+    # 3. MAIN DASHBOARD
     col_feed, col_telemetry = st.columns([3.5, 1])
     with col_feed:
         feed = st.empty()
@@ -144,7 +158,6 @@ def main():
         lat_cont = st.container(border=True); m_lat_num = lat_cont.empty(); lat_chart = lat_cont.empty()
         m_gpu = st.empty(); m_ram = st.empty(); m_status = st.empty()
 
-    # Pre-calculate sizes
     base_file = 'rtdetr-l.pt'
     fps_history = pd.DataFrame(columns=["FPS"])
     lat_history = pd.DataFrame(columns=["Latency"])
@@ -168,7 +181,6 @@ def main():
             
             fps = 1000/lat
             fps_buffer.append(fps); lat_buffer.append(lat)
-            
             feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB), use_container_width=True)
             
             m_size.markdown(f'<div class="metric-box"><p class="m-label">Footprint</p><p class="m-value">{active_size:.1f} MB</p></div>', unsafe_allow_html=True)
@@ -176,24 +188,16 @@ def main():
             m_fps_num.markdown(f'<p class="m-value" style="color:#ff8743;">{fps:.1f} FPS</p>', unsafe_allow_html=True)
             m_lat_num.markdown(f'<p class="m-value" style="color:#4ade80;">{lat:.1f} MS</p>', unsafe_allow_html=True)
             
-            # CHART REFRESH (Turbo Smooth: 0.3 Seconds)
             curr_time = time.time()
             if curr_time - last_refresh >= 0.3:
                 avg_fps = sum(fps_buffer)/len(fps_buffer) if fps_buffer else 0
                 avg_lat = sum(lat_buffer)/len(lat_buffer) if lat_buffer else 0
-                
-                # Update growing history
                 fps_history = pd.concat([fps_history, pd.DataFrame({"FPS": [avg_fps]})], ignore_index=True)
                 lat_history = pd.concat([lat_history, pd.DataFrame({"Latency": [avg_lat]})], ignore_index=True)
-                
-                # Keep long history for presentation context (last 100 entries)
                 if len(fps_history) > 100:
-                    fps_history = fps_history.iloc[1:]
-                    lat_history = lat_history.iloc[1:]
-                
+                    fps_history = fps_history.iloc[1:]; lat_history = lat_history.iloc[1:]
                 fps_chart.line_chart(fps_history, height=80, use_container_width=True)
                 lat_chart.line_chart(lat_history, height=80, use_container_width=True)
-                
                 fps_buffer = []; lat_buffer = []
                 last_refresh = curr_time
             
