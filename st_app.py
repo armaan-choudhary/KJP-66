@@ -32,19 +32,25 @@ def load_prismnet_resources():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # 1. Baseline Model (FP32 ImageNet)
+    from baseline import get_resnet50_imagenet
     base = get_resnet50_imagenet(pretrained=True)
     
     # 2. Optimized Model (Pruned + Early Exit)
     import copy
+    from compression import apply_structured_pruning
     m = copy.deepcopy(base)
     pruned = apply_structured_pruning(m, amount=0.3)
     ee_model = EarlyExitResNet(pruned, num_classes=1000).to(device)
     ee_model.eval()
     
-    # 3. Load ImageNet Labels
-    from torchvision.models import ResNet50_Weights
-    weights = ResNet50_Weights.IMAGENET1K_V2
-    classes = weights.meta["categories"]
+    # 3. Load ImageNet Labels (Safe method)
+    try:
+        from torchvision.models import ResNet50_Weights
+        weights = ResNet50_Weights.IMAGENET1K_V2
+        classes = weights.meta["categories"]
+    except Exception as e:
+        st.warning(f"Label load failed: {e}. Using generic labels.")
+        classes = [f"Object {i}" for i in range(1000)]
         
     return base, ee_model, device, classes
 
