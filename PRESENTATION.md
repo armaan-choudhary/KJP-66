@@ -26,18 +26,18 @@ Dynamic Token Scaling: Intelligence on Demand
 - Efficiency: Automatically scales computational depth based on image complexity
 ---
 
-Blackwell Performance: RTX 50-series Optimization
+High-Precision Engineering & Unified CLI
 
-- TF32 & BF16: Optimized kernels for the latest Blackwell Tensor Cores
-- Dynamic VRAM: Real-time system monitoring and intelligent memory allocation
-- Result: Squeezing maximum throughput out of the latest laptop GPU architecture
+- Precise Metrics: Sub-millisecond tracking using hardware-synced `torch.cuda.Event`
+- Unified Interface: Single `main.py` entry point for App, Benchmark, and Baseline
+- Data-Driven: Integrated `benchmark.py` suite for objective performance validation
 ---
 
 Hardware Observability: The System Cockpit
 
 - Real-time Telemetry: Live tracking of GPU Compute Load and VRAM status
 - System Health: Dynamic monitoring of RAM pressure and process stability
-- Readiness: Professional-grade observability for mission-critical edge deployment
+- Native Badge: Automated hardware detection for Blackwell Compute Capability
 ---
 
 Project Impact & Hackathon Summary
