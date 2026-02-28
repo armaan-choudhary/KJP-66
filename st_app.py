@@ -108,12 +108,20 @@ def main():
             m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{latency:.1f}ms</p></div>', unsafe_allow_html=True)
             m_stage.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage_label}</p></div>', unsafe_allow_html=True)
             
-            # 2. Dynamic Memory Monitoring
+            # 2. Dynamic Memory & GPU Monitoring
             if torch.cuda.is_available():
                 free_b, total_b = torch.cuda.mem_get_info()
                 used_vram = (total_b - free_b) / (1024**2)
                 total_vram = total_b / (1024**2)
-                m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU VRAM USED</p><p class="metric-value">{used_vram:.0f} / {total_vram:.0f} MB</p></div>', unsafe_allow_html=True)
+                
+                # New: Dynamic GPU Compute Load
+                # Note: On some systems, this requires specific driver permissions
+                try:
+                    gpu_load = torch.cuda.utilization()
+                except:
+                    gpu_load = "N/A"
+                
+                m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU VRAM / LOAD</p><p class="metric-value" style="font-size:1.4rem;">{used_vram:.0f}MB | {gpu_load}%</p></div>', unsafe_allow_html=True)
             
             ram_percent = psutil.virtual_memory().percent
             m_ram.markdown(f'<div class="status-card"><p class="metric-label">SYSTEM RAM LOAD</p><p class="metric-value">{ram_percent}%</p></div>', unsafe_allow_html=True)
