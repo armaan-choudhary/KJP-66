@@ -28,6 +28,9 @@ def apply_prism_theme():
 
 def render_badge():
     import torch
+    
+    st.markdown("""<div style="background: rgba(74, 222, 128, 0.1); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #4ade80; margin-bottom: 10px;"><span style="color: #4ade80; font-weight: bold; font-size: 0.8rem;">📦 L1 PRUNED & INT8 QUANTIZED (GB-03)</span></div>""", unsafe_allow_html=True)
+    
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)
         major, _ = torch.cuda.get_device_capability(0)

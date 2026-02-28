@@ -1,9 +1,15 @@
 import torch
+import os
 
 # --- Model Configurations ---
 MODEL_BASE = "rtdetr-x.pt"
-MODEL_OPTIMIZED = "prismnet_optimised.pt"
+MODEL_OPTIMIZED = "prismnet_compressed.pt"
+MODEL_TRT = "rtdetr-x.engine"  # Hardware-Accelerated TensorRT Engine
 COCO_CLASSES = 80 # Real class count for RT-DETR-X (Pretrained)
+
+# --- Compression Settings ---
+PRUNING_RATIO = 0.3
+QUANTIZATION_DTYPE = 'INT8'
 
 # --- Inference Settings ---
 DEFAULT_THRESHOLD = 0.75

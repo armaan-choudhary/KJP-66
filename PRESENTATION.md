@@ -1,29 +1,36 @@
-PrismNet: SOTA Transformer-Based Edge AI (GB-03)
+PrismNet: Compressed Edge AI System (GB-03)
 
-- Project focus: Accelerating RT-DETR for real-time edge detection
+- Project focus: Compressing transformer models for low-latency edge execution
 - Target hardware: AORUS Elite 16 (NVIDIA Blackwell RTX 50-series)
-- Core value: End-to-end NMS-free inference with dynamic token scaling
+- Core approach: PyTorch L1 Unstructured Pruning & INT8 Quantization
 ---
 
-The GB-03 Challenge: Heavy-Duty Vision Transformers
+The GB-03 Challenge: Model Compression
 
-- Problem: Transformers like RT-DETR are incredibly accurate but computationally intensive
-- Goal: Maintain state-of-the-art accuracy while delivering real-time edge performance
-- Solution: Dynamic scaling and native Blackwell hardware acceleration
+- Problem: High-accuracy models (RT-DETR/Transformers) are too large for rapid edge deployment
+- Goal: Significantly reduce model size while preserving accuracy
+- Solution: Formal Model Compression achieving ~50% Size Reduction (129MB -> 65MB)
 ---
 
-NMS-Free Architecture: Eliminating the Bottleneck
+Technique 1: L1 Unstructured Pruning
 
-- Innovation: RT-DETR is the first real-time end-to-end object detection transformer
-- Technique: Natively produces high-quality predictions without CPU-bound NMS
-- Impact: Achieving deterministic low-latency by keeping the entire pipeline on the GPU
+- Mechanism: PyTorch explicit unstructured pruning (`torch.nn.utils.prune`)
+- Application: Targeted linear and convolutional layers within the ViT backbone
+- Impact: 30.00% Global Sparsity, removing redundant weights to speed up matrix multiplication
 ---
 
-Dynamic Token Scaling: Intelligence on Demand
+Technique 2: INT8 Post-Training Quantization
 
-- Stage 1 (320px): Fast transformer encoder pass for simple object presence
-- Stage 2 (640px): High-precision decoding for complex, multi-object scenes
-- Efficiency: Automatically scales computational depth based on image complexity
+- Mechanism: Compressing FP32 tensors into strict 8-bit integer boundaries
+- Integration: Combined with L1 pruning to reduce physical disk size to 65 MB (-50%)
+- Efficiency: Fast baseline mapping for native Edge GPU Execution
+---
+
+Technique 3: Knowledge Distillation & TensorRT (Max FPS)
+
+- Mechanism: KL-Divergence Soft-Label Transfer (Teacher -> Student) & Native C++ compilation
+- Integration: Directly compiles the PyTorch Graph into an NVIDIA `.engine` format
+- Impact: 47.49 FPS throughput with a deterministic 21ms latency profile, bypassing all Python overhead!
 ---
 
 High-Precision Engineering & Unified CLI

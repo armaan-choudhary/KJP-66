@@ -14,3 +14,7 @@ logs/
 yolov8*.pt
 yolo11*.pt
 yolo26*.pt
+
+# TRT and ONNX files
+*.engine
+*.onnx

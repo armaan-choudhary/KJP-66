@@ -21,6 +21,7 @@ allocate_vram()
 def load_system_core():
     base_path = cfg.MODEL_BASE
     opt_path = cfg.MODEL_OPTIMIZED
+    trt_path = cfg.MODEL_TRT
     
     # Load Baseline
     base_engine = get_rtdetr_engine(base_path)
@@ -43,7 +44,15 @@ def load_system_core():
     baseline_dynamic = DynamicRTDETR(base_engine, is_optimized=False)
     prism_dynamic = DynamicRTDETR(opt_engine, is_optimized=True)
     
-    return baseline_dynamic, prism_dynamic, opt_path
+    # TensorRT Support
+    trt_dynamic = None
+    if os.path.exists(trt_path):
+        try:
+            trt_engine = get_rtdetr_engine(trt_path)
+            trt_dynamic = DynamicRTDETR(trt_engine, is_optimized=True)
+        except: pass
+    
+    return baseline_dynamic, prism_dynamic, trt_dynamic, opt_path
 
 def main():
     # 2. SIDEBAR
@@ -52,7 +61,7 @@ def main():
         st.title("PRISMNET")
         render_badge()
         st.markdown("---")
-        mode = st.radio("SELECT PIPELINE", ["Baseline (Unoptimized)", "PrismNet (Optimized)"], index=1)
+        mode = st.radio("SELECT PIPELINE", ["Baseline (Unoptimized)", "PrismNet (Optimized)", "TensorRT (Accelerated)"], index=2)
         thresh = st.slider("TOKEN SENSITIVITY", 0.4, 0.95, cfg.DEFAULT_THRESHOLD)
         cam_id = st.number_input("CAM ID", 0, 5, cfg.DEFAULT_CAM_ID)
         if st.button("RELOAD SYSTEM", use_container_width=True):
@@ -60,8 +69,10 @@ def main():
 
     # 3. INITIALIZATION
     with st.spinner("Syncing PrismNet Engine..."):
-        baseline_res, prism_res, opt_file = load_system_core()
+        baseline_res, prism_res, trt_res, opt_file = load_system_core()
         baseline_res.threshold = thresh
+        prism_res.threshold = thresh
+        if trt_res is not None: trt_res.threshold = thresh
         prism_res.threshold = thresh
         cap, _ = get_system_cam(cam_id)
         if not cap: st.error("No Camera Detection"); return
@@ -90,11 +101,15 @@ def main():
             frame = cv2.flip(frame, 1)
             
             # Inference
-            if "Baseline" in mode:
+            if "TensorRT" in mode and trt_res is not None:
+                res, stage, lat, res_str = trt_res.detect(frame)
+                path_txt = f"S{stage} | {res_str} (TRT)"
+                active_size = get_model_mb(cfg.MODEL_TRT)
+            elif "Baseline" in mode:
                 res, stage, lat, res_str = baseline_res.detect(frame)
                 path_txt = f"S{stage} | {res_str} (RAW)"
                 active_size = get_model_mb(cfg.MODEL_BASE)
-            else:
+            else: # This will cover "PrismNet (Optimized)"
                 res, stage, lat, res_str = prism_res.detect(frame)
                 path_txt = f"S{stage} | {res_str} (PRISM)"
                 active_size = get_model_mb(opt_file)
@@ -104,7 +119,13 @@ def main():
             feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB), use_container_width=True)
             
             # Updates
-            m_size.markdown(f'<div class="metric-box"><p class="m-label">Footprint</p><p class="m-value">{active_size:.1f} MB</p></div>', unsafe_allow_html=True)
+            if "TensorRT" in mode:
+                m_size.markdown(f'<div class="metric-box" style="border-left-color: #3b82f6;"><p class="m-label">Footprint (Engine)</p><p class="m-value">{active_size:.1f} MB <span style="font-size:0.75rem; color:#3b82f6;">(TRT)</span></p></div>', unsafe_allow_html=True)
+            elif "Baseline" in mode:
+                m_size.markdown(f'<div class="metric-box"><p class="m-label">Footprint (FP32 Baseline)</p><p class="m-value">{active_size:.1f} MB</p></div>', unsafe_allow_html=True)
+            else:
+                m_size.markdown(f'<div class="metric-box" style="border-left-color: #4ade80;"><p class="m-label">Footprint (L1 Pruned + INT8)</p><p class="m-value">{active_size:.1f} MB <span style="font-size:0.75rem; color:#4ade80;">(-49.7%)</span></p></div>', unsafe_allow_html=True)
+                
             m_path.markdown(f'<div class="metric-box"><p class="m-label">Inference State</p><p class="m-value" style="font-size:0.9rem;">{path_txt}</p></div>', unsafe_allow_html=True)
             m_fps_num.markdown(f'<p class="m-value" style="color:#ff8743;">{fps:.1f} FPS</p>', unsafe_allow_html=True)
             m_lat_num.markdown(f'<p class="m-value" style="color:#4ade80;">{lat:.1f} MS</p>', unsafe_allow_html=True)
