@@ -2,19 +2,38 @@ import torch
 import time
 import json
 import numpy as np
-from baseline import get_rtdetr_baseline
-from early_exit import DynamicRTDETR
+from core.engine import get_rtdetr_engine
+from core.resolver import DynamicRTDETR
+from utils.hardware import allocate_vram
 
 # PrismNet Project: Final Transformer Benchmark Suite
 print("--- PrismNet: RT-DETR Performance Benchmark ---")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+allocate_vram()
+
+def benchmark_rtdetr(model, iterations=30):
+    print(f"Benchmarking RT-DETR on {device}...")
+    dummy = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
+    
+    # Warmup
+    for _ in range(5):
+        _ = model.predict(dummy, imgsz=640, verbose=False)
+        
+    t0 = time.time()
+    with torch.no_grad():
+        for _ in range(iterations):
+            _ = model.predict(dummy, imgsz=640, verbose=False)
+            
+    lat = (time.time() - t0) / iterations * 1000
+    print(f"Avg Latency: {lat:.2f}ms | FPS: {1000/lat:.1f}")
+    return lat
 
 def run_full_benchmark():
     results = {}
     
     # 1. Load Model
-    shared_rtdetr = get_rtdetr_baseline('rtdetr-l.pt')
+    shared_rtdetr = get_rtdetr_engine('rtdetr-l.pt')
     dynamic = DynamicRTDETR(shared_rtdetr)
     dummy = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
     
@@ -39,7 +58,7 @@ def run_full_benchmark():
     # Simulate a mix of complexities
     t0 = time.time()
     for _ in range(30):
-        _, _, _ = dynamic.detect(dummy)
+        _, _, _, _ = dynamic.detect(dummy)
     lat_prism = (time.time() - t0) / 30 * 1000
     results["PrismNet Optimized"] = {"latency": round(lat_prism, 2), "fps": round(1000/lat_prism, 2)}
     

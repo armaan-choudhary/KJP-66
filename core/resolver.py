@@ -28,9 +28,13 @@ class DynamicRTDETR:
         
         # Stage 1: Turbo Scan
         if self.is_optimized:
+            # OPTIMIZED: Uses INT8-Compressed Weights + Autocast FP16/BF16 Math
+            torch.set_float32_matmul_precision('high') # Allow TF32/Optimizations
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
                 res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
         else:
+            # BASELINE: Force Full Pure FP32 Precision (No Optimizations)
+            torch.set_float32_matmul_precision('highest')
             self.model.model.float()
             with torch.no_grad():
                 res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
@@ -48,9 +52,11 @@ class DynamicRTDETR:
             
         # Stage 2: Precision Pass
         if self.is_optimized:
+            torch.set_float32_matmul_precision('high')
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
                 res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]
         else:
+            torch.set_float32_matmul_precision('highest')
             self.model.model.float()
             with torch.no_grad():
                 res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]

@@ -1,7 +1,5 @@
 import os
-import sys
 import argparse
-import torch
 
 # PrismNet Project: Unified Entry Point
 print("--- PrismNet: On-Device RT-DETR Optimization ---")
@@ -13,22 +11,22 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "baseline":
-        from baseline import get_rtdetr_baseline, benchmark_rtdetr
-        model = get_rtdetr_baseline()
+        from core.engine import get_rtdetr_engine
+        from benchmark import benchmark_rtdetr
+        model = get_rtdetr_engine('rtdetr-l.pt')
         benchmark_rtdetr(model)
         
     elif args.mode == "early-exit":
         # Demonstrates the dynamic resolution system
-        from baseline import get_rtdetr_baseline
-        from early_exit import DynamicRTDETR
-        import cv2
+        from core.engine import get_rtdetr_engine
+        from core.resolver import DynamicRTDETR
         import numpy as np
         
-        shared_rtdetr = get_rtdetr_baseline()
+        shared_rtdetr = get_rtdetr_engine('rtdetr-l.pt')
         dynamic = DynamicRTDETR(shared_rtdetr)
         dummy = np.zeros((640, 640, 3), dtype=np.uint8)
-        res, stage, lat = dynamic.detect(dummy)
-        print(f"Dynamic Test: Stage {stage} | Latency: {lat:.2f}ms")
+        res, stage, lat, res_str = dynamic.detect(dummy)
+        print(f"Dynamic Test: Stage {stage} | Resolution: {res_str} | Latency: {lat:.2f}ms")
         
     elif args.mode == "benchmark":
         import benchmark
