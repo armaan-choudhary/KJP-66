@@ -2,45 +2,46 @@ import torch
 import time
 import json
 import numpy as np
-import os
-from baseline import get_resnet50_places365, benchmark_inference
-from early_exit import EarlyExitResNet, EarlyExitHead
+from baseline import get_rtdetr_baseline
+from early_exit import DynamicRTDETR
 
-# PrismNet Project: Final Benchmark Suite
-print("--- PrismNet: Performance Benchmark Suite ---")
+# PrismNet Project: Final Transformer Benchmark Suite
+print("--- PrismNet: RT-DETR Performance Benchmark ---")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def run_full_benchmark():
     results = {}
     
-    # 1. FP32 Baseline
-    print("\n[1/4] Benchmarking FP32 Baseline...")
-    baseline = get_resnet50_places365(pretrained=False)
-    lat_fp32, fps_fp32 = benchmark_inference(baseline, iterations=50)
-    results["FP32 Baseline"] = {"latency": round(lat_fp32, 2), "fps": round(fps_fp32, 2)}
+    # 1. Load Model
+    shared_rtdetr = get_rtdetr_baseline('rtdetr-l.pt')
+    dynamic = DynamicRTDETR(shared_rtdetr)
+    dummy = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
     
-    # 2. Mixed Precision (Simulated INT8/INT4)
-    # On RTX 50-series, we use torch.compile() which handles some of this, 
-    # or we simulate the latency reduction (typically 2-3x for INT8/INT4)
-    print("\n[2/4] Benchmarking Mixed Precision (INT8/INT4)...")
-    lat_mp = lat_fp32 * 0.45 # Simulation based on INT8/INT4 acceleration
-    fps_mp = 1000 / lat_mp
-    results["Mixed Precision"] = {"latency": round(lat_mp, 2), "fps": round(fps_mp, 2)}
+    # 2. Benchmark Baseline (Fixed 640px)
+    print("\n[1/3] Benchmarking Baseline (Full Decoder)...")
+    t0 = time.time()
+    for _ in range(30):
+        _ = shared_rtdetr.predict(dummy, imgsz=640, verbose=False)
+    lat_base = (time.time() - t0) / 30 * 1000
+    results["Baseline (640px)"] = {"latency": round(lat_base, 2), "fps": round(1000/lat_base, 2)}
     
-    # 3. Early Exit (Dynamic Depth)
-    print("\n[3/4] Benchmarking Early Exit (Dynamic Depth)...")
-    # Simulate a distribution of exit paths (50% exit 1, 30% exit 2, 20% exit 3)
-    # Average latency will be significantly lower
-    lat_ee = (lat_fp32 * 0.25 * 0.5) + (lat_fp32 * 0.5 * 0.3) + (lat_fp32 * 1.0 * 0.2)
-    fps_ee = 1000 / lat_ee
-    results["Early Exit"] = {"latency": round(lat_ee, 2), "fps": round(fps_ee, 2)}
+    # 3. Benchmark Turbo (Fixed 320px)
+    print("\n[2/3] Benchmarking Turbo (Encoder Only)...")
+    t0 = time.time()
+    for _ in range(30):
+        _ = shared_rtdetr.predict(dummy, imgsz=320, verbose=False)
+    lat_turbo = (time.time() - t0) / 30 * 1000
+    results["Turbo (320px)"] = {"latency": round(lat_turbo, 2), "fps": round(1000/lat_turbo, 2)}
     
-    # 4. PrismNet Optimized (Combined)
-    print("\n[4/4] Benchmarking PrismNet Fully Optimized...")
-    lat_prism = lat_ee * 0.45 # Combined reduction
-    fps_prism = 1000 / lat_prism
-    results["PrismNet Optimized"] = {"latency": round(lat_prism, 2), "fps": round(fps_prism, 2)}
+    # 4. PrismNet Optimized (Dynamic)
+    print("\n[3/3] Benchmarking PrismNet Dynamic Scaling...")
+    # Simulate a mix of complexities
+    t0 = time.time()
+    for _ in range(30):
+        _, _, _ = dynamic.detect(dummy)
+    lat_prism = (time.time() - t0) / 30 * 1000
+    results["PrismNet Optimized"] = {"latency": round(lat_prism, 2), "fps": round(1000/lat_prism, 2)}
     
     # Print Table
     print("\n" + "="*50)
@@ -50,7 +51,6 @@ def run_full_benchmark():
         print(f"{name:<25} | {stats['latency']:<12.2f} | {stats['fps']:<8.2f}")
     print("="*50)
     
-    # Save to JSON
     with open('benchmark_results.json', 'w') as f:
         json.dump(results, f, indent=4)
     print("\nResults saved to benchmark_results.json")
