@@ -48,20 +48,34 @@ def main():
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PrismNet RT-DETR")
         
-        # Blackwell Architecture Detection Badge
+        # Advanced Hardware Detection
         is_blackwell = False
+        is_nvidia = False
         if torch.cuda.is_available():
+            is_nvidia = True
             gpu_name = torch.cuda.get_device_name(0)
-            if "RTX 50" in gpu_name or "Blackwell" in gpu_name:
+            major, minor = torch.cuda.get_device_capability(0)
+            # Blackwell is Compute 9.0+
+            if major >= 9 or "RTX 50" in gpu_name:
                 is_blackwell = True
         
         if is_blackwell:
             st.markdown("""
                 <div style="background: linear-gradient(90deg, #ff8743, #ff4d00); 
-                            padding: 10px; border-radius: 8px; text-align: center;
-                            border: 1px solid #ffffff33; margin-bottom: 20px;">
-                    <span style="color: white; font-weight: bold; font-size: 0.8rem;">
-                        ⚡ BLACKWELL ARCHITECTURE DETECTED
+                            padding: 12px; border-radius: 10px; text-align: center;
+                            border: 1px solid #ffffff44; margin-bottom: 25px;
+                            box-shadow: 0 4px 15px rgba(255, 135, 67, 0.3);">
+                    <span style="color: white; font-weight: bold; font-size: 0.85rem; letter-spacing: 1px;">
+                        ⚡ BLACKWELL NATIVE ACTIVE
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+        elif is_nvidia:
+            st.markdown("""
+                <div style="background: #1a212a; padding: 10px; border-radius: 8px; 
+                            text-align: center; border: 1px solid #ff8743; margin-bottom: 25px;">
+                    <span style="color: #ff8743; font-weight: bold; font-size: 0.8rem;">
+                        NVIDIA ACCELERATION ENABLED
                     </span>
                 </div>
             """, unsafe_allow_html=True)
