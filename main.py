@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import os
 import sys
 import argparse
@@ -40,11 +39,9 @@ def main():
         benchmark.run_full_benchmark()
         
     else: # app (default)
-        import app
-        app.launch_ui()
+        import os
+        print("Launching PrismNet Modern Minimal Dashboard...")
+        os.system("streamlit run st_app.py")
 
 if __name__ == "__main__":
     main()
-=======
-print("Foooooooooo!!!!!!!!!!!!!")
->>>>>>> 950f3ab25695582ec6f465c152c56cbd7303119c

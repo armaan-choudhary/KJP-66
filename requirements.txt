@@ -1,6 +1,9 @@
 torch>=2.1.0
 torchvision
 opencv-python
-gradio>=4.0.0
 numpy
 onnxruntime
+streamlit
+Pillow
+ultralytics
+requests
