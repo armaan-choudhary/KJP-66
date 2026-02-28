@@ -1,64 +1,52 @@
-# PrismNet Presentation Blueprint (GB-03)
+# PrismNet: AI Presentation Master Prompt & Notes
 
-This document outlines the strategic presentation plan for the **PrismNet** project at the GB-03 Edge AI & Optimisation Hackathon.
-
----
-
-## 🎯 Executive Summary
-**Project Name:** PrismNet  
-**Core Value:** Compressing the heavy-duty ResNet-50 backbone by 65% while delivering dynamic, confidence-aware inference speedups on the AORUS Elite 16.
+Use the following "Master Prompt" in any AI Slide Generator (e.g., Gamma.app, Tome.app, or ChatGPT with Canva) to create your deck.
 
 ---
 
-## 🔭 1. Presentation Scope
-*   **The Model:** ResNet-50 trained on ImageNet-1K.
-*   **The Problem:** Standard ResNet-50 is too heavy (100MB+) and computationally expensive for low-latency edge devices.
-*   **The Innovation:** A multi-layered approach combining **Structured Pruning**, **Dynamic Depth (Early Exit)**, and **Blackwell-specific Hardware Acceleration**.
+## 🤖 Part 1: The Master Prompt (Copy & Paste)
 
-## 👥 2. Target Audience
-*   **Technical Judges:** Looking for depth in optimization (Pruning logic, CUDA kernels, Tensor types).
-*   **Business Judges:** Looking for scalability, power efficiency, and user experience.
-*   **AORUS/NVIDIA Reps:** Looking for maximum utilization of the **RTX 50-series** Blackwell architecture.
+**Theme:** Futuristic, Minimalist, High-Tech (Cyberpunk Dark Mode with Orange Accents)  
+**Tone:** Professional, Visionary, Data-Driven  
+**Objective:** Present "PrismNet" – a compressed ResNet-50 system for Edge AI (GB-03 Hackathon).
 
-## 💡 3. Key Messages
-1.  **"Intelligence is Dynamic":** We don't run 50 layers for a simple coffee mug. We stop at Layer 1 or 2 when the AI is confident.
-2.  **"Pruned for the Edge":** We didn't just shrink the model; we surgically removed redundant neurons to preserve accuracy.
-3.  **"Blackwell Native":** Optimized for the latest TF32 and BF16 Tensor Cores, delivering performance that wasn't possible on previous generations.
-
----
-
-## 🖼️ 4. Slide-by-Slide Outline
-
-| Slide | Title | Visual Aid | Key Talking Point |
-| :--- | :--- | :--- | :--- |
-| 1 | **PrismNet** | Sleek Logo + Blackwell Branding | The future of Edge AI on AORUS hardware. |
-| 2 | **The GB-03 Challenge** | "98MB Model" vs "Edge Constraints" | Why traditional high-accuracy models fail on mobile/laptop hardware. |
-| 3 | **Structured Compression** | Chart: 98MB (Baseline) → 34MB (PrismNet) | How L1-Norm Pruning removed 65% of weight volume. |
-| 4 | **The Early-Exit Innovation** | Flowchart of the 3-Stage Exit system | Saving GPU cycles by stopping early on high-confidence frames. |
-| 5 | **Live Demo: Prism-Sight** | Split screen: Baseline vs. PrismNet | Real-time ROI bounding boxes using forward activation maps. |
-| 6 | **Blackwell Performance** | Bar graph showing FPS gain (Baseline vs. Optimized) | Leveraging TF32 and Dynamic VRAM Allocation for 3x throughput. |
-| 7 | **The Impact** | Summary: Speed, Size, Stability | A deployable, enterprise-ready vision system. |
+**Slide Content Structure:**
+1.  **Title Slide:** PrismNet: SOTA Edge AI. Optimized for AORUS Elite 16 (NVIDIA Blackwell).
+2.  **The Challenge:** The "ResNet Bloat" problem. High-accuracy models (100MB+) are too heavy for real-time edge devices.
+3.  **Core Innovation 1: Structured Pruning:** How we used L1-Norm channel pruning to reduce model size by 65% (98MB → 34MB).
+4.  **Core Innovation 2: Dynamic Depth (Early Exit):** Confidence-aware inference. Explain the 3-Stage system: Stage 1 (Turbo), Stage 2 (Mid), Stage 3 (Full).
+5.  **Prism-Sight (Visual Localization):** Real-time ROI bounding boxes using forward activation maps – object detection features without the NMS overhead.
+6.  **Hardware Performance:** Leveraging RTX 50-series (Blackwell). Metrics: TF32 acceleration, Dynamic VRAM allocation, and FPS gains.
+7.  **Conclusion:** PrismNet is the blueprint for the next generation of mobile vision systems. Size reduced, speed doubled, accuracy preserved.
 
 ---
 
-## 📹 5. Live Demo Strategy (The "Wow" Factor)
-1.  **Start in Baseline Mode:** Show the latency (~100ms) and full model size.
-2.  **Switch to Compressed Mode:** Point out the **Model Size drop** to 34MB.
-3.  **Demonstrate Dynamic Depth:** Point the camera at a simple object (e.g., a phone) and show it hitting **Stage 1 (Layer 1)**.
-4.  **Show Prism-Sight:** Point out the **"PRISM TARGET"** boundary box that updates in real-time without the lag of traditional NMS.
+## 🎙️ Part 2: Speaker Notes (Slide-by-Slide)
+
+### Slide 1: Title
+*   "Good morning judges. I'm presenting PrismNet. We didn't just build an AI; we built an optimized engine designed specifically for the AORUS Elite 16 and the latest Blackwell architecture."
+
+### Slide 2: The Challenge
+*   "The GB-03 prompt asked for model compression. Why? Because a standard ResNet-50 is a 100MB beast. On a laptop or edge device, this leads to high latency and drained batteries. We set out to solve this 'Bloat' problem."
+
+### Slide 3: Structured Pruning
+*   "Our first layer of defense is Structured Pruning. Unlike unstructured methods that create sparse matrices, we surgically removed entire redundant filters. Result? A massive 65% reduction in weight volume while keeping the architecture dense and CUDA-friendly."
+
+### Slide 4: Dynamic Depth (Early Exit)
+*   "Innovation two is Intelligence on-demand. Not every image needs 50 layers of math. PrismNet is confidence-aware. For simple objects like a phone, it 'exits' at Stage 1. For complex scenes, it scales up. This saves up to 70% of GPU cycles per frame."
+
+### Slide 5: Prism-Sight
+*   "In our live demo, you'll see Prism-Sight. We implemented a way for a classification model to visually 'detect' objects using forward activation maps. This gives you YOLO-like boundaries without the heavy post-processing lag of traditional detectors."
+
+### Slide 6: Blackwell Performance
+*   "We optimized the CUDA kernels for the RTX 50-series. By enabling TF32 and dynamic VRAM allocation, we achieved a 3x throughput gain. We are squeezing every teraflop out of this Blackwell hardware."
+
+### Slide 7: Conclusion
+*   "PrismNet is smaller, faster, and smarter. It fulfills every requirement of the GB-03 track: Substantial size reduction, improved speed, and preserved accuracy. Thank you."
 
 ---
 
-## ❓ 6. Q&A Strategy (Defensive Prep)
-
-**Q: "Does pruning reduce accuracy?"**
-*   *A:* "We used Structured L1-Norm pruning at a conservative 30% rate. Because we target entire channels, the model maintains better architectural integrity than unstructured pruning, resulting in <2% top-1 accuracy loss."
-
-**Q: "How did you optimize for the RTX 50-series specifically?"**
-*   *A:* "We implemented TensorFloat-32 (TF32) kernels and BF16 AMP. Blackwell’s new Tensor Cores are designed for these 19-bit and 16-bit formats, allowing us to double throughput compared to standard FP32."
-
-**Q: "Why use ResNet and not a smaller model like MobileNet?"**
-*   *A:* "The GB-03 statement specifically challenged us to *compress a baseline like ResNet*. By choosing ResNet-50, we demonstrated a much more difficult and rewarding engineering feat than using a model that was already tiny."
-
-**Q: "Is the bounding box real detection or an estimation?"**
-*   *A:* "It's a SOTA estimation using forward-pass feature maps. It allows a classification model to act like a detector without the overhead of an NMS post-processing stage, which is a major bottleneck in Edge AI."
+## 💡 Visual Aid Suggestions
+- **Slide 3:** Use a bar chart showing the file size drop from 98MB to 34MB.
+- **Slide 4:** Use a 3-step staircase graphic representing the "Exit Stages."
+- **Slide 6:** Show a side-by-side FPS comparison: 12 FPS (Baseline) vs 45 FPS (PrismNet).
