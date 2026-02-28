@@ -60,10 +60,12 @@ def copy_and_prune(model):
 def preprocess(frame):
     img = cv2.resize(frame, (224, 224))
     img = img.astype(np.float32) / 255.0
-    mean = np.array([0.485, 0.456, 0.406])
-    std = np.array([0.229, 0.224, 0.225])
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
     img = (img - mean) / std
-    return torch.from_numpy(np.transpose(img, (2, 0, 1))).unsqueeze(0)
+    # Explicitly cast to float32 to avoid DoubleTensor issues
+    tensor = torch.from_numpy(np.transpose(img, (2, 0, 1))).float().unsqueeze(0)
+    return tensor
 
 @st.cache_resource
 def get_device_camera(index):
@@ -117,10 +119,12 @@ def main():
             if not ret: continue
             
             frame = cv2.flip(frame, 1)
+            # Preprocess now returns a FloatTensor
             tensor = preprocess(frame).to(device)
             t0 = time.time()
             
-            with torch.no_grad(), torch.autocast(device_type=device.type):
+            # Use AMP which handles the conversion from Float to Half automatically
+            with torch.no_grad(), torch.autocast(device_type=device.type, dtype=torch.float16 if device.type == 'cuda' else torch.bfloat16):
                 if "Baseline" in mode:
                     logits = base_model(tensor)
                     exit_path = "Full Depth"
