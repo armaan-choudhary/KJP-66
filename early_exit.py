@@ -37,7 +37,7 @@ class EarlyExitResNet(nn.Module):
         self.exit2 = EarlyExitHead(512, num_classes)
         self.final_exit = nn.Sequential(base_model.avgpool, nn.Flatten(), base_model.fc)
         
-    def forward(self, x):
+    def forward(self, x, return_feature_maps=False):
         # Stage 0: Stem
         x = self.stem(x)
         
@@ -48,7 +48,7 @@ class EarlyExitResNet(nn.Module):
         conf1, _ = torch.max(probs1, 1)
         
         if not self.training and conf1.item() >= self.threshold:
-            return logits1, 1
+            return (logits1, 1, x) if return_feature_maps else (logits1, 1)
             
         # Stage 2: Layer 2
         x = self.layer2(x)
@@ -57,10 +57,10 @@ class EarlyExitResNet(nn.Module):
         conf2, _ = torch.max(probs2, 1)
         
         if not self.training and conf2.item() >= self.threshold:
-            return logits2, 2
+            return (logits2, 2, x) if return_feature_maps else (logits2, 2)
             
         # Stage 3: Full Depth
         x = self.layer3(x)
         x = self.layer4(x)
         logits_final = self.final_exit(x)
-        return logits_final, 3
+        return (logits_final, 3, x) if return_feature_maps else (logits_final, 3)
