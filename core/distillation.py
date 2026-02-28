@@ -1,3 +1,7 @@
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -29,7 +33,7 @@ class KDLoss(nn.Module):
         # 3. Combined Loss
         return (self.alpha * loss_hard) + ((1 - self.alpha) * loss_soft)
 
-def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch="rtdetr-resnet18.pt"):
+def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MODEL_STUDENT):
     """
     Initializes the GB-03 Knowledge Distillation pipeline.
     Instantiates a large Teacher model and a lightweight Student model.
@@ -58,7 +62,7 @@ def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch="rtdet
         return
         
     # 3. Setup Distillation Engine
-    kd_loss_fn = KDLoss(temperature=4.0, alpha=0.3)
+    kd_loss_fn = KDLoss(temperature=cfg.KD_TEMPERATURE, alpha=cfg.KD_ALPHA)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-4, weight_decay=1e-4)
     
     print("\nKnowledge Distillation Architecture Ready.")

@@ -9,7 +9,7 @@ def quantize_state_dict(model_instance, target_path):
     quantized_dict = {}
     for k, v in state_dict.items():
         if v.is_floating_point():
-            scale = v.abs().max() / 127.0
+            scale = v.abs().max() / cfg.INT8_MAX_VAL
             if scale == 0: scale = 1.0
             q_v = torch.round(v / scale).to(torch.int8)
             quantized_dict[k] = {'w': q_v, 's': scale}

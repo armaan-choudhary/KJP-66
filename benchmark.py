@@ -80,10 +80,10 @@ def run_full_benchmark():
             trt_size = os.path.getsize(cfg.MODEL_TRT) / (1024 * 1024)
             # Warmup
             for _ in range(3):
-                trt_engine.predict(dummy, imgsz=640, half=True, verbose=False)
+                trt_engine.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, half=True, verbose=False)
             t0 = time.time()
             for _ in range(30):
-                trt_engine.predict(dummy, imgsz=640, half=True, verbose=False)
+                trt_engine.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, half=True, verbose=False)
             lat_trt = (time.time() - t0) / 30 * 1000
             results["PrismNet TensorRT"] = {"latency": round(lat_trt, 2), "fps": round(1000/lat_trt, 2), "size_mb": round(trt_size, 2)}
         else:

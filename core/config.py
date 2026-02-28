@@ -10,6 +10,12 @@ COCO_CLASSES = 80 # Real class count for RT-DETR-X (Pretrained)
 # --- Compression Settings ---
 PRUNING_RATIO = 0.3
 QUANTIZATION_DTYPE = 'INT8'
+INT8_MAX_VAL = 127.0
+MODEL_STUDENT = "rtdetr-l.pt"
+
+# --- Distillation Settings ---
+KD_TEMPERATURE = 4.0
+KD_ALPHA = 0.3
 
 # --- Inference Settings ---
 DEFAULT_THRESHOLD = 0.75

@@ -24,8 +24,8 @@ class DynamicRTDETR:
         
         # Calculate Resolutions
         if getattr(self, 'is_tensorrt', False):
-            # TensorRT compiled statically for 640x640
-            s1_h = s1_w = s2_h = s2_w = 640
+            # TensorRT compiled statically
+            s1_h = s1_w = s2_h = s2_w = STAGE2_MAX_RES
         else:
             s1_h = max(STAGE1_MIN_RES, (h // 2 // MODEL_STRIDE) * MODEL_STRIDE)
             s1_w = int((s1_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)

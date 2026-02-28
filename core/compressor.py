@@ -65,7 +65,7 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     for name, param in model.model.state_dict().items():
         if param.is_floating_point():
             # Store at 8-bit scale
-            scale = param.abs().max() / 127.0
+            scale = param.abs().max() / cfg.INT8_MAX_VAL
             if scale == 0: scale = 1.0
             q_v = torch.round(param / scale).to(torch.int8)
             quantized_state[name] = {'w': q_v, 's': scale}
@@ -89,7 +89,7 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
         print(f"Targeting: {torch.cuda.get_device_name(0)}")
         print("This optimizes CUDA kernels natively (may take up to 2-3 minutes).")
         try:
-            trt_path = model.export(format='engine', half=True, dynamic=False, int8=False, imgsz=640)
+            trt_path = model.export(format='engine', half=True, dynamic=False, int8=False, imgsz=cfg.STAGE2_MAX_RES)
             print(f"TensorRT Engine successfully saved to: {trt_path}")
         except Exception as e:
             print(f"\nTensorRT Export Failed (Likely missing 'tensorrt' pip library natively): {e}")
