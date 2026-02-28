@@ -1,0 +1,10 @@
+# PrismNet GitIgnore
+venv/
+__pycache__/
+*.pyc
+*.pth
+*.json
+*.tar
+.gradio/
+logs/
+.DS_Store
