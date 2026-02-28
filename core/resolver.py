@@ -6,10 +6,11 @@ class DynamicRTDETR:
     """
     Resolution-Aware Dynamic Inference Resolver.
     """
-    def __init__(self, model_instance, threshold=DEFAULT_THRESHOLD, is_optimized=True):
+    def __init__(self, model_instance, threshold=DEFAULT_THRESHOLD, is_optimized=True, is_tensorrt=False):
         self.model = model_instance
         self.threshold = threshold
         self.is_optimized = is_optimized
+        self.is_tensorrt = is_tensorrt
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
     def detect(self, frame):
@@ -22,10 +23,14 @@ class DynamicRTDETR:
         aspect = w / h
         
         # Calculate Resolutions
-        s1_h = max(STAGE1_MIN_RES, (h // 2 // MODEL_STRIDE) * MODEL_STRIDE)
-        s1_w = int((s1_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
-        s2_h = min(STAGE2_MAX_RES, (h // MODEL_STRIDE) * MODEL_STRIDE)
-        s2_w = int((s2_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
+        if getattr(self, 'is_tensorrt', False):
+            # TensorRT compiled statically for 640x640
+            s1_h = s1_w = s2_h = s2_w = 640
+        else:
+            s1_h = max(STAGE1_MIN_RES, (h // 2 // MODEL_STRIDE) * MODEL_STRIDE)
+            s1_w = int((s1_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
+            s2_h = min(STAGE2_MAX_RES, (h // MODEL_STRIDE) * MODEL_STRIDE)
+            s2_w = int((s2_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
         
         # Stage 1: Turbo Scan
         if self.is_optimized:

@@ -49,8 +49,10 @@ def load_system_core():
     if os.path.exists(trt_path):
         try:
             trt_engine = get_rtdetr_engine(trt_path)
-            trt_dynamic = DynamicRTDETR(trt_engine, is_optimized=True)
-        except: pass
+            trt_dynamic = DynamicRTDETR(trt_engine, is_optimized=True, is_tensorrt=True)
+        except Exception as e: 
+            print(f"TRT Engine Load Error: {e}")
+            pass
     
     return baseline_dynamic, prism_dynamic, trt_dynamic, opt_path
 
