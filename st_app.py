@@ -47,6 +47,25 @@ def main():
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PrismNet RT-DETR")
+        
+        # Blackwell Architecture Detection Badge
+        is_blackwell = False
+        if torch.cuda.is_available():
+            gpu_name = torch.cuda.get_device_name(0)
+            if "RTX 50" in gpu_name or "Blackwell" in gpu_name:
+                is_blackwell = True
+        
+        if is_blackwell:
+            st.markdown("""
+                <div style="background: linear-gradient(90deg, #ff8743, #ff4d00); 
+                            padding: 10px; border-radius: 8px; text-align: center;
+                            border: 1px solid #ffffff33; margin-bottom: 20px;">
+                    <span style="color: white; font-weight: bold; font-size: 0.8rem;">
+                        ⚡ BLACKWELL ARCHITECTURE DETECTED
+                    </span>
+                </div>
+            """, unsafe_allow_html=True)
+        
         st.markdown("---")
         mode = st.radio("Pipeline Mode", ["Baseline (Unoptimized RT-DETR)", "PrismNet (Compressed ViT)"])
         threshold = st.slider("Innovation: Token sensitivity", 0.4, 0.95, 0.75)
