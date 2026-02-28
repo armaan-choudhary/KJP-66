@@ -108,7 +108,7 @@ def main():
             m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{latency:.1f}ms</p></div>', unsafe_allow_html=True)
             m_stage.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage_label}</p></div>', unsafe_allow_html=True)
             
-            # Memory Tracking
+            # 2. Dynamic Memory Monitoring
             if torch.cuda.is_available():
                 free_b, total_b = torch.cuda.mem_get_info()
                 used_vram = (total_b - free_b) / (1024**2)
@@ -118,7 +118,7 @@ def main():
             ram_percent = psutil.virtual_memory().percent
             m_ram.markdown(f'<div class="status-card"><p class="metric-label">SYSTEM RAM LOAD</p><p class="metric-value">{ram_percent}%</p></div>', unsafe_allow_html=True)
 
-            # Health Report
+            # 3. Reactive Health Report
             health = "STABLE" if ram_percent < 80 else "CRITICAL"
             color = "#4ade80" if health == "STABLE" else "#f87171"
             m_report.markdown(f'<div style="background:#1a212a; padding:10px; border-radius:8px; border-left:4px solid {color};"><small style="color:#8a949e;">HEALTH REPORT</small><br/><span style="color:{color}; font-weight:bold;">{health}</span></div>', unsafe_allow_html=True)
