@@ -13,16 +13,27 @@ print(f"Targeting device: {device}")
 def allocate_vram_dynamically():
     if not torch.cuda.is_available(): return
     try:
-        # Get free memory in MiB using memory_get_info
-        free_mem, total_mem = torch.cuda.mem_get_info(0)
-        free_mib, total_mib = free_mem / (1024**2), total_mem / (1024**2)
+        # System-wide memory check
+        free_bytes, total_bytes = torch.cuda.mem_get_info(0)
+        free_mib = free_bytes / (1024**2)
+        total_mib = total_bytes / (1024**2)
         
-        # Calculate optimal fraction (leave 10% for OS overhead)
-        fraction = max(0.1, min(0.9, (free_mib - 200) / total_mib))
+        # Calculate a safe allocation fraction for this specific process
+        # We want to use most of what's available but leave room for the display driver (RTX 50-series)
+        target_mib = free_mib * 0.8  # Use 80% of current free VRAM
+        fraction = min(0.95, target_mib / total_mib)
+        
+        # Set a hard limit to prevent OOMs and play nice with other GPU apps
         torch.cuda.set_per_process_memory_fraction(fraction, 0)
-        print(f"--- PrismNet VRAM Allocation ---")
-        print(f"Free VRAM: {free_mib:.0f}MiB | Allocated: {fraction*100:.1f}%")
-    except: pass
+        
+        print(f"--- PrismNet Dynamic GPU Allocation ---")
+        print(f"Global Free: {free_mib:.0f}MB | Allocation Limit: {fraction*100:.1f}%")
+        
+        # Optimize internal allocator
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+    except Exception as e:
+        print(f"GPU Manager Warning: {e}")
 
 allocate_vram_dynamically()
 

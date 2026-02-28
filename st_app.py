@@ -114,10 +114,18 @@ def main():
             m_exit.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage}</p></div>', unsafe_allow_html=True)
             m_objs.markdown(f'<div class="status-card"><p class="metric-label">OBJECTS</p><p class="metric-value">{len(res.boxes)}</p></div>', unsafe_allow_html=True)
             
+            # Dynamic GPU Health Check
             if torch.cuda.is_available():
-                free, total = torch.cuda.mem_get_info()
-                vram_used = (total - free) / (1024**2)
-                m_vram.markdown(f'<div class="status-card"><p class="metric-label">VRAM USED</p><p class="metric-value">{vram_used:.0f}MB</p></div>', unsafe_allow_html=True)
+                # Get system-wide free memory
+                free_b, _ = torch.cuda.mem_get_info()
+                system_free_mb = free_b / (1024**2)
+                
+                # Get memory specifically allocated/reserved by PyTorch
+                proc_alloc_mb = torch.cuda.memory_allocated() / (1024**2)
+                proc_res_mb = torch.cuda.memory_reserved() / (1024**2)
+                
+                vram_info = f"Used: {proc_alloc_mb:.0f}MB | Sys Free: {system_free_mb:.0f}MB"
+                m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU MEMORY (DYNAMIC)</p><p class="metric-value" style="font-size:1.2rem;">{vram_info}</p></div>', unsafe_allow_html=True)
 
             time.sleep(0.001)
 
