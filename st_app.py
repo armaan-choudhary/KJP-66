@@ -48,14 +48,13 @@ def main():
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PrismNet RT-DETR")
         
-        # Advanced Hardware Detection
+        # Blackwell Architecture Detection Badge
         is_blackwell = False
         is_nvidia = False
         if torch.cuda.is_available():
             is_nvidia = True
             gpu_name = torch.cuda.get_device_name(0)
-            major, minor = torch.cuda.get_device_capability(0)
-            # Blackwell is Compute 9.0+
+            major, _ = torch.cuda.get_device_capability(0)
             if major >= 9 or "RTX 50" in gpu_name:
                 is_blackwell = True
         
@@ -123,43 +122,45 @@ def main():
             if not ret: continue
             
             frame = cv2.flip(frame, 1)
-            t0 = time.time()
             
+            # 1. Precise Inference Logic
             if "Baseline" in mode:
-                res = rtdetr_model.predict(frame, imgsz=640, verbose=False)[0]
+                if torch.cuda.is_available():
+                    s = torch.cuda.Event(enable_timing=True); e = torch.cuda.Event(enable_timing=True)
+                    s.record()
+                    res = rtdetr_model.predict(frame, imgsz=640, verbose=False)[0]
+                    e.record(); torch.cuda.synchronize()
+                    latency = s.elapsed_time(e)
+                else:
+                    t0 = time.time()
+                    res = rtdetr_model.predict(frame, imgsz=640, verbose=False)[0]
+                    latency = (time.time() - t0) * 1000
                 stage_label = "Full ViT Decoder"
-                latency = (time.time() - t0) * 1000
             else:
                 res, stage_num, latency = dynamic_detector.detect(frame)
                 stage_label = f"Dynamic Stage {stage_num}"
             
+            # 2. Update Visualization
             plot_img = res.plot()
             feed.image(cv2.cvtColor(plot_img, cv2.COLOR_BGR2RGB), use_container_width=True)
             
-            # Update Metrics
+            # 3. Update Performance Metrics
             m_fps.markdown(f'<div class="status-card"><p class="metric-label">TPS (FPS)</p><p class="metric-value">{1000/latency:.1f}</p></div>', unsafe_allow_html=True)
             m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{latency:.1f}ms</p></div>', unsafe_allow_html=True)
             m_stage.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage_label}</p></div>', unsafe_allow_html=True)
             
-            # 2. Dynamic Memory & GPU Monitoring
+            # 4. Update GPU/RAM Telemetry
             if torch.cuda.is_available():
                 free_b, total_b = torch.cuda.mem_get_info()
                 used_vram = (total_b - free_b) / (1024**2)
-                total_vram = total_b / (1024**2)
-                
-                # New: Dynamic GPU Compute Load
-                # Note: On some systems, this requires specific driver permissions
-                try:
-                    gpu_load = torch.cuda.utilization()
-                except:
-                    gpu_load = "N/A"
-                
+                try: gpu_load = torch.cuda.utilization()
+                except: gpu_load = "N/A"
                 m_vram.markdown(f'<div class="status-card"><p class="metric-label">GPU VRAM / LOAD</p><p class="metric-value" style="font-size:1.4rem;">{used_vram:.0f}MB | {gpu_load}%</p></div>', unsafe_allow_html=True)
             
             ram_percent = psutil.virtual_memory().percent
             m_ram.markdown(f'<div class="status-card"><p class="metric-label">SYSTEM RAM LOAD</p><p class="metric-value">{ram_percent}%</p></div>', unsafe_allow_html=True)
 
-            # 3. Reactive Health Report
+            # 5. Health Monitor
             health = "STABLE" if ram_percent < 80 else "CRITICAL"
             color = "#4ade80" if health == "STABLE" else "#f87171"
             m_report.markdown(f'<div style="background:#1a212a; padding:10px; border-radius:8px; border-left:4px solid {color};"><small style="color:#8a949e;">HEALTH REPORT</small><br/><span style="color:{color}; font-weight:bold;">{health}</span></div>', unsafe_allow_html=True)
