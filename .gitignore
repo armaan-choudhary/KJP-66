@@ -8,3 +8,9 @@ __pycache__/
 .gradio/
 logs/
 .DS_Store
+
+# YOLO Model Weights
+*.pt
+yolov8*.pt
+yolo11*.pt
+yolo26*.pt

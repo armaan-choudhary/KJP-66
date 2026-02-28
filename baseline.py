@@ -42,17 +42,25 @@ if device.type == 'cuda':
     torch.set_float32_matmul_precision('high')
     torch.backends.cudnn.benchmark = True
 
-def get_yolo_model(model_name='yolo11m.pt'):
+def get_yolo_model(model_name='yolo26x.pt'):
     """
-    Loads YOLO11m (Medium) for RTX 50-series.
-    Medium model provides massive accuracy boost for the new Blackwell architecture.
+    Loads YOLO26x (Extra-Large) for RTX 50-series.
+    The ultralytics YOLO class will automatically handle the download
+    if the weight file (.pt) is not found in the project root.
     """
-    print(f"Loading High-Performance {model_name}...")
+    print(f"Loading/Downloading State-of-the-art {model_name}...")
+    # Ultralytics handles auto-download of known models (v8, v11, v26, etc.)
     model = YOLO(model_name)
     model.to(device)
     
-    # NOTE: torch.compile() removed due to compatibility issues with ultralytics predictor.
-    # High-performance is maintained via TF32 and cuDNN benchmark settings.
+    # RTX 50-series Extreme Optimization: max-autotune
+    if hasattr(torch, 'compile') and device.type == 'cuda':
+        try:
+            print("Applying Blackwell Architecture Optimization (max-autotune)...")
+            # We compile the underlying PyTorch model within the YOLO wrapper
+            model.model = torch.compile(model.model, mode="max-autotune")
+        except Exception as e:
+            print(f"Extreme optimization skipped: {e}")
             
     return model
 

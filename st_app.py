@@ -57,7 +57,7 @@ def main():
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PrismNet")
         st.markdown("---")
-        variant = st.selectbox("Engine Class", ["YOLO11n (Turbo)", "YOLO11m (High-End)"], index=0)
+        variant = st.selectbox("Engine Class", ["YOLO26n (Turbo)", "YOLO26m (Performance)", "YOLO26x (State-of-the-Art)"], index=0)
         mode = st.radio("Pipeline", ["Optimised (PrismNet)", "Baseline (Standard)"])
         threshold = st.slider("Early-Exit Sensitivity", 0.4, 0.95, 0.70)
         
@@ -68,7 +68,13 @@ def main():
             st.cache_resource.clear()
             st.rerun()
         
-    model_file = 'yolo11n.pt' if "Turbo" in variant else 'yolo11m.pt'
+    # Map selection to YOLO26 model files
+    model_map = {
+        "YOLO26n (Turbo)": "yolo26n.pt",
+        "YOLO26m (Performance)": "yolo26m.pt",
+        "YOLO26x (State-of-the-Art)": "yolo26x.pt"
+    }
+    model_file = model_map[variant]
     
     with st.spinner("PrismNet Initializing..."):
         baseline_detector, dynamic_detector, device = init_prismnet_system(model_file)
