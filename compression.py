@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.utils.prune as pruning
 import os
 import copy
-from baseline import get_resnet50_places365
+from baseline import get_resnet50_imagenet
 
 # PrismNet: Model Compression Engine (Pruning + Quantization)
 print("--- PrismNet: Initializing Compression Engine (GB-03) ---")
@@ -39,7 +39,7 @@ def get_compressed_size(file_path):
 
 if __name__ == "__main__":
     # 1. Load Baseline
-    base_model = get_resnet50_places365(pretrained=False)
+    base_model = get_resnet50_imagenet(pretrained=False)
     torch.save(base_model.state_dict(), 'baseline_fp32.pth')
     base_size = get_compressed_size('baseline_fp32.pth')
     print(f"Baseline Size: {base_size:.2f} MB")
