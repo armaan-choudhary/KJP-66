@@ -53,14 +53,8 @@ def get_yolo_model(model_name='yolo26x.pt'):
     model = YOLO(model_name)
     model.to(device)
     
-    # RTX 50-series Extreme Optimization: max-autotune
-    if hasattr(torch, 'compile') and device.type == 'cuda':
-        try:
-            print("Applying Blackwell Architecture Optimization (max-autotune)...")
-            # We compile the underlying PyTorch model within the YOLO wrapper
-            model.model = torch.compile(model.model, mode="max-autotune")
-        except Exception as e:
-            print(f"Extreme optimization skipped: {e}")
+    # NOTE: torch.compile() is disabled due to a known 'DetectionModel does not support len()' 
+    # bug in the torch/ultralytics integration. High-performance is maintained via TF32.
             
     return model
 
