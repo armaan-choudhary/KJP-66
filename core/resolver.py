@@ -1,13 +1,9 @@
 import torch
 import time
-from ultralytics import RTDETR
-
-# PrismNet Project: Dynamic RT-DETR System (Innovation)
-print("--- PrismNet: Dynamic RT-DETR System ---")
 
 class DynamicRTDETR:
     """
-    Implements a confidence-aware transformer scaler for RT-DETR.
+    Resolution-Aware Dynamic Inference Resolver.
     """
     def __init__(self, model_instance, threshold=0.75, is_optimized=True):
         self.model = model_instance
@@ -17,26 +13,24 @@ class DynamicRTDETR:
         
     def detect(self, frame):
         if torch.cuda.is_available():
-            start_event = torch.cuda.Event(enable_timing=True)
-            end_event = torch.cuda.Event(enable_timing=True)
-            start_event.record()
+            s = torch.cuda.Event(enable_timing=True); e = torch.cuda.Event(enable_timing=True)
+            s.record()
         
         t0 = time.time()
         h, w = frame.shape[:2]
         aspect = w / h
         
+        # Calculate Resolutions
         s1_h = max(320, (h // 2 // 32) * 32)
         s1_w = int((s1_h * aspect // 32) * 32)
         s2_h = min(640, (h // 32) * 32)
         s2_w = int((s2_h * aspect // 32) * 32)
         
-        # 1. Stage 1 (Turbo Scan)
+        # Stage 1: Turbo Scan
         if self.is_optimized:
-            # OPTIMIZED: Half Precision + Dynamic Resolution
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
                 res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
         else:
-            # BASELINE: Force Full FP32 Precision (Heavy Math)
             self.model.model.float()
             with torch.no_grad():
                 res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=0.25, verbose=False)[0]
@@ -47,13 +41,12 @@ class DynamicRTDETR:
             
         if max_conf >= self.threshold:
             if torch.cuda.is_available():
-                end_event.record(); torch.cuda.synchronize()
-                latency = start_event.elapsed_time(end_event)
-            else:
-                latency = (time.time() - t0) * 1000
+                e.record(); torch.cuda.synchronize()
+                latency = s.elapsed_time(e)
+            else: latency = (time.time() - t0) * 1000
             return res1, 1, latency, f"{s1_w}x{s1_h}"
             
-        # 2. Stage 2 (Precision Pass)
+        # Stage 2: Precision Pass
         if self.is_optimized:
             with torch.no_grad(), torch.autocast(device_type=self.device.type, dtype=torch.float16 if self.device.type == 'cuda' else torch.bfloat16):
                 res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]
@@ -63,9 +56,8 @@ class DynamicRTDETR:
                 res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=0.25, verbose=False)[0]
             
         if torch.cuda.is_available():
-            end_event.record(); torch.cuda.synchronize()
-            latency = start_event.elapsed_time(end_event)
-        else:
-            latency = (time.time() - t0) * 1000
+            e.record(); torch.cuda.synchronize()
+            latency = s.elapsed_time(e)
+        else: latency = (time.time() - t0) * 1000
             
         return res2, 2, latency, f"{s2_w}x{s2_h}"

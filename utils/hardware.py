@@ -1,0 +1,37 @@
+import torch
+import cv2
+import psutil
+import os
+
+def allocate_vram():
+    """Optimizes GPU memory fraction."""
+    if not torch.cuda.is_available(): return
+    try:
+        torch.cuda.set_per_process_memory_fraction(0.85, 0)
+    except: pass
+
+def get_gpu_status():
+    """Returns MiB used and Load percentage."""
+    if not torch.cuda.is_available(): return 0, "N/A"
+    try:
+        f, t = torch.cuda.mem_get_info()
+        used = (t-f)/(1024**2)
+        load = torch.cuda.utilization()
+        return used, load
+    except: return 0, "N/A"
+
+def get_system_cam(manual_index=0):
+    """Auto-scans for camera hardware."""
+    for i in [manual_index, 0, 1, 2]:
+        cap = cv2.VideoCapture(i)
+        if cap.isOpened():
+            cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+            return cap, i
+    return None, None
+
+def get_model_mb(path):
+    if os.path.exists(path):
+        return os.path.getsize(path) / (1024**2)
+    return 0.0
