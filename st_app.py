@@ -9,7 +9,7 @@ from early_exit import EarlyExitResNet
 from compression import apply_structured_pruning
 import os
 
-# PrismNet: GB-03 Edge AI & Optimisation Dashboard (Object Classification + GradCAM)
+# PrismNet: GB-03 Edge AI & Optimisation Dashboard (Object Classification + ROI)
 st.set_page_config(page_title="PrismNet | ResNet Object", page_icon="📦", layout="wide")
 
 # Minimalist PrismNet Theme
@@ -28,51 +28,42 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-class GradCAM:
+class FeatureMapBBox:
     """
-    Prism-Sight: Custom Grad-CAM for ResNet Bounding Box Visualization.
+    Stable ROI Detection: Uses the model's final feature maps to estimate object location.
+    No live gradients required = 100% stability.
     """
-    def __init__(self, model, target_layer):
+    def __init__(self, model):
         self.model = model
-        self.target_layer = target_layer
-        self.gradients = None
-        self.activations = None
+        self.feature_map = None
         
-        def save_gradients(module, grad_input, grad_output):
-            self.gradients = grad_output[0]
-        def save_activations(module, input, output):
-            self.activations = output
+        # Hook into the last conv layer before pooling
+        def hook_fn(module, input, output):
+            self.feature_map = output
             
-        self.target_layer.register_forward_hook(save_activations)
-        self.target_layer.register_full_backward_hook(save_gradients)
+        self.model.layer4.register_forward_hook(hook_fn)
 
-    def generate_bbox(self, input_tensor, class_idx):
-        self.model.zero_grad()
-        output = self.model(input_tensor)
+    def get_bbox(self, frame_shape):
+        if self.feature_map is None: return None
         
-        if isinstance(output, tuple): output = output[0] # Handle EarlyExit tuple
+        # Average the 2048 channels to get a 7x7 intensity map
+        am = torch.mean(self.feature_map, dim=1).squeeze()
+        am = F.relu(am)
+        am /= (torch.max(am) + 1e-8)
+        am = am.cpu().detach().numpy()
         
-        loss = output[0, class_idx]
-        loss.backward()
+        # Upscale to frame size
+        h, w = frame_shape[:2]
+        am_resized = cv2.resize(am, (w, h))
         
-        # Pool the gradients
-        pooled_gradients = torch.mean(self.gradients, dim=[0, 2, 3])
-        for i in range(self.activations.size(1)):
-            self.activations[:, i, :, :] *= pooled_gradients[i]
-            
-        heatmap = torch.mean(self.activations, dim=1).squeeze()
-        heatmap = F.relu(heatmap)
-        heatmap /= torch.max(heatmap) + 1e-8
-        heatmap = heatmap.cpu().detach().numpy()
-        
-        # Convert heatmap to bounding box
-        heatmap_resized = cv2.resize(heatmap, (640, 480))
-        _, thresh = cv2.threshold((heatmap_resized * 255).astype(np.uint8), 150, 255, cv2.THRESH_BINARY)
+        # Threshold to find most active region
+        _, thresh = cv2.threshold((am_resized * 255).astype(np.uint8), 120, 255, cv2.THRESH_BINARY)
         contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
         if contours:
-            best_cnt = max(contours, key=cv2.contourArea)
-            return cv2.boundingRect(best_cnt)
+            c = max(contours, key=cv2.contourArea)
+            if cv2.contourArea(c) > 500: # Filter noise
+                return cv2.boundingRect(c)
         return None
 
 @st.cache_resource
@@ -95,10 +86,10 @@ def load_prismnet_resources():
     except:
         classes = [f"Object {i}" for i in range(1000)]
         
-    # Setup GradCAM on the last residual layer (layer4)
-    cam = GradCAM(ee_model, ee_model.layer4)
+    # Initialize stable BBox engine
+    bbox_engine = FeatureMapBBox(ee_model)
         
-    return base, ee_model, device, classes, cam
+    return base, ee_model, device, classes, bbox_engine
 
 def preprocess(frame):
     img = cv2.resize(frame, (224, 224))
@@ -121,29 +112,27 @@ def main():
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PrismNet GB-03")
         st.markdown("---")
-        mode = st.radio("Optimization Mode", ["Baseline", "Compressed (Prism-Sight)"])
-        threshold = st.slider("Confidence Threshold", 0.4, 0.95, 0.85)
+        mode = st.radio("Optimization Mode", ["Baseline", "Compressed (Active ROI)"])
+        threshold = st.slider("Early-Exit Threshold", 0.4, 0.95, 0.85)
         cam_index = st.number_input("Camera ID", 0, 5, 0)
-        if st.button("Hard Reset"):
+        if st.button("Reload System"):
             st.cache_resource.clear()
             st.rerun()
 
-    # Model Size Stats
-    base_mb = 102.5
-    comp_mb = 36.1
+    # Stats
+    base_mb, comp_mb = 102.5, 36.1
     active_mb = base_mb if mode == "Baseline" else comp_mb
 
-    with st.spinner("PrismNet Initializing Object Engine..."):
-        base_model, ee_model, device, classes, cam = load_prismnet_resources()
+    with st.spinner("Initializing ResNet Engine..."):
+        base_model, ee_model, device, classes, bbox_engine = load_prismnet_resources()
         ee_model.threshold = threshold
         cap = get_device_camera(cam_index)
 
     if cap is None:
-        st.error("Camera not detected.")
+        st.error("Hardware Conflict: Camera not found.")
         return
 
     main_col, stats_col = st.columns([3, 1])
-
     with main_col:
         feed = st.empty()
         top3_placeholder = st.empty()
@@ -161,50 +150,39 @@ def main():
             if not ret: continue
             
             frame = cv2.flip(frame, 1)
-            raw_frame = frame.copy()
             tensor = preprocess(frame).to(device)
             t0 = time.time()
             
-            # 1. Classification & Exit Path
-            if mode == "Baseline":
-                with torch.no_grad():
+            with torch.no_grad(), torch.autocast(device_type=device.type, dtype=torch.float16 if device.type == 'cuda' else torch.bfloat16):
+                if mode == "Baseline":
                     logits = base_model(tensor)
-                exit_path = "Full Depth"
-                pred_idx = torch.argmax(logits, dim=1).item()
-            else:
-                # Optimized Path with GradCAM
-                # Note: Grad-CAM requires gradients, so we don't use torch.no_grad() here
-                # but we enable it for everything else
-                logits, exit_stage = ee_model(tensor)
-                exit_path = f"Stage {exit_stage}"
-                pred_idx = torch.argmax(logits, dim=1).item()
-                
-                # Dynamic Boundary Detection (Innovation)
-                if exit_stage >= 2: # Only show bbox for more complex "stage 2/3" detections
-                    bbox = cam.generate_bbox(tensor, pred_idx)
-                    if bbox:
-                        x, y, w, h = bbox
-                        cv2.rectangle(frame, (x, y), (x + w, y + h), (255, 135, 67), 3)
-                        cv2.putText(frame, classes[pred_idx].title(), (x, y - 10), 
-                                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 135, 67), 2)
+                    exit_path = "Full Depth"
+                else:
+                    logits, exit_stage = ee_model(tensor)
+                    exit_path = f"Stage {exit_stage}"
+                    
+                    # Draw ROI Boundary (Uses forward feature maps)
+                    if exit_stage >= 2:
+                        bbox = bbox_engine.get_bbox(frame.shape)
+                        if bbox:
+                            x, y, w, h = bbox
+                            cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 135, 67), 3)
+                            cv2.putText(frame, "TARGET", (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 135, 67), 2)
 
             lat = (time.time() - t0) * 1000
             probs = torch.softmax(logits, dim=1)
             top_probs, top_idxs = torch.topk(probs, 3, dim=1)
             
-            # Update Feed
             feed.image(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), use_container_width=True)
             
-            # Update Stats
             m_fps.markdown(f'<div class="status-card"><p class="metric-label">REAL-TIME FPS</p><p class="metric-value">{1000/lat:.1f}</p></div>', unsafe_allow_html=True)
             m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{lat:.1f}ms</p></div>', unsafe_allow_html=True)
             m_exit.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{exit_path}</p></div>', unsafe_allow_html=True)
             
             if torch.cuda.is_available():
-                free, total = torch.cuda.mem_get_info()
+                free, _ = torch.cuda.mem_get_info()
                 m_vram.markdown(f'<div class="status-card"><p class="metric-label">SYS VRAM FREE</p><p class="metric-value">{free/1024**2:.0f}MB</p></div>', unsafe_allow_html=True)
 
-            # Update Labels
             labels_html = "### Top-3 Predictions\n"
             for i in range(3):
                 p = top_probs[0][i].item()
@@ -215,7 +193,7 @@ def main():
             time.sleep(0.01)
 
     except Exception as e:
-        st.error(f"Stream Error: {e}")
+        st.error(f"System Error: {e}")
 
 if __name__ == "__main__":
     main()
