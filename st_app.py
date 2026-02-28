@@ -3,142 +3,126 @@ import torch
 import cv2
 import numpy as np
 import time
-from PIL import Image
 from baseline import get_yolo_model
 from early_exit import DynamicResolutionDetector
 import os
 
-# PrismNet: Modern Minimal Object Detection Dashboard
-st.set_page_config(page_title="PrismNet Dashboard", page_icon="🎯", layout="wide")
+# PrismNet: Ultra-Fast On-Device Detection Dashboard
+st.set_page_config(page_title="PrismNet Turbo", page_icon="🚀", layout="wide")
 
-# Custom CSS for Modern Minimal Aesthetic
+# Minimalist PrismNet Theme
 st.markdown("""
     <style>
-    .main { background-color: #0c1116; color: #ffffff; }
-    .stMetric { background-color: #1a212a; padding: 15px; border-radius: 10px; border-left: 5px solid #ff8743; }
-    .stRadio > label { color: #ff8743 !important; font-weight: bold; }
+    .stApp { background-color: #0c1116; }
+    [data-testid="stHeader"] { background: rgba(0,0,0,0); }
+    .status-card {
+        padding: 20px;
+        border-radius: 12px;
+        background: #1a212a;
+        border: 1px solid #2d3640;
+        margin-bottom: 15px;
+    }
+    .metric-label { color: #8a949e; font-size: 0.9rem; }
+    .metric-value { color: #ff8743; font-size: 1.8rem; font-weight: 700; }
     </style>
     """, unsafe_allow_html=True)
 
 @st.cache_resource
-def load_prismnet_detectors():
-    # PRE-INIT: Clear memory cache
+def init_prismnet_system(model_variant='yolo11n.pt'):
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
+        torch.backends.cudnn.benchmark = True
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    shared_yolo = get_yolo_model('yolo11m.pt')
-    base = shared_yolo
+    shared_yolo = get_yolo_model(model_variant)
     dynamic = DynamicResolutionDetector(shared_yolo)
-    
-    # WARMUP
-    dummy = np.zeros((640, 640, 3), dtype=np.uint8)
-    _ = shared_yolo.predict(dummy, imgsz=640, verbose=False)
-    _, _, _ = dynamic.detect(dummy)
-    return base, dynamic, device
+    dummy = np.zeros((320, 320, 3), dtype=np.uint8)
+    _ = shared_yolo.predict(dummy, imgsz=320, verbose=False)
+    return shared_yolo, dynamic, device
 
 @st.cache_resource
-def get_cap():
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
+def get_device_camera(index):
+    try:
+        cap = cv2.VideoCapture(index)
+        if not cap or not cap.isOpened():
+            return None
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+        return cap
+    except:
         return None
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    return cap
 
 def main():
-    st.title("PrismNet: On-Device Object Detection")
-    st.markdown("---")
-
-    # Sidebar
-    st.sidebar.header("PrismNet Settings")
-    mode = st.sidebar.radio("Detection Mode", ["Baseline (Full 640px)", "Optimised (Dynamic Res)"])
-    conf_thresh = st.sidebar.slider("Early-Exit Confidence", 0.5, 0.95, 0.75)
-    
-    # Load Models
-    baseline_detector, dynamic_detector, device = load_prismnet_detectors()
-    if mode == "Optimised (Dynamic Res)":
-        dynamic_detector.threshold = conf_thresh
-
-    # Layout: Camera Feed | Metrics
-    col1, col2 = st.columns([2, 1])
-
-    with col1:
-        st.subheader("Live Detection")
-        img_placeholder = st.empty()
-        
-    with col2:
-        st.subheader("Performance Analytics")
-        metric_vram = st.empty()
-        metric_objects = st.empty()
-        metric_latency = st.empty()
-        metric_stage = st.empty()
-        metric_fps = st.empty()
+    with st.sidebar:
+        st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
+        st.title("PrismNet")
         st.markdown("---")
-        st.subheader("Detected Objects")
-        objects_list = st.empty()
-
-    # Camera Setup (Singleton)
-    cap = get_cap()
+        variant = st.selectbox("Engine Class", ["YOLO11n (Turbo)", "YOLO11m (High-End)"], index=0)
+        mode = st.radio("Pipeline", ["Optimised (PrismNet)", "Baseline (Standard)"])
+        threshold = st.slider("Early-Exit Sensitivity", 0.4, 0.95, 0.70)
+        
+        st.markdown("---")
+        st.subheader("Hardware Config")
+        cam_index = st.number_input("Camera Device ID", min_value=0, max_value=10, value=0)
+        if st.button("Reload Hardware"):
+            st.cache_resource.clear()
+            st.rerun()
+        
+    model_file = 'yolo11n.pt' if "Turbo" in variant else 'yolo11m.pt'
     
+    with st.spinner("PrismNet Initializing..."):
+        baseline_detector, dynamic_detector, device = init_prismnet_system(model_file)
+        dynamic_detector.threshold = threshold
+        cap = get_device_camera(cam_index)
+
     if cap is None:
-        st.error("PrismNet Critical Error: Could not access camera hardware. Please check connection.")
-        if st.button("Retry"): st.rerun()
-        st.stop()
+        st.error(f"Hardware Conflict: Camera {cam_index} not found. Try another Device ID.")
+        return
+
+    main_col, stats_col = st.columns([3, 1])
+    with main_col:
+        img_placeholder = st.empty()
+
+    with stats_col:
+        st.markdown('<div class="status-card"><p class="metric-label">SYSTEM STATUS</p><p style="color:#4ade80; font-weight:bold;">● ONLINE / ENCRYPTED</p></div>', unsafe_allow_html=True)
+        m_fps = st.empty()
+        m_lat = st.empty()
+        m_exit = st.empty()
+        m_objs = st.empty()
+        m_vram = st.empty()
 
     try:
         while True:
-            ret, frame = cap.read()
-            if not ret or frame is None:
-                time.sleep(0.1)
-                continue
+            success, frame = cap.read()
+            if not success: continue
             
             frame = cv2.flip(frame, 1)
+            t0 = time.time()
             
-            # Start Inference Pipeline
-            start_time = time.time()
-            try:
-                if "Baseline" in mode:
-                    results = baseline_detector.predict(frame, imgsz=640, conf=0.25, verbose=False)[0]
-                    stage = 2
-                else:
-                    results, stage, latency_raw = dynamic_detector.detect(frame)
-                
-                latency = (time.time() - start_time) * 1000
-            except Exception as inf_err:
-                st.warning(f"Inference Warning: {inf_err}")
-                continue
+            if mode == "Baseline (Standard)":
+                res = baseline_detector.predict(frame, imgsz=640, conf=0.25, verbose=False)[0]
+                stage = "Final"
+            else:
+                res, stage_num, _ = dynamic_detector.detect(frame)
+                stage = f"Stage {stage_num}"
             
-            # Draw results using Ultralytics plot()
-            plot_frame = results.plot()
-            frame_rgb = cv2.cvtColor(plot_frame, cv2.COLOR_BGR2RGB)
-            img_placeholder.image(frame_rgb, use_container_width=True)
+            latency = (time.time() - t0) * 1000
+            img_placeholder.image(res.plot()[:,:,::-1], use_container_width=True)
             
-            # Data Binding: Update UI
-            num_objs = len(results.boxes)
-            metric_objects.metric("Objects Found", num_objs)
-            metric_latency.metric("Inference Latency", f"{latency:.2f} ms")
-            metric_stage.metric("Inference Stage", f"Stage {stage}")
-            metric_fps.metric("Optimized FPS", f"{1000/latency:.1f}")
+            m_fps.markdown(f'<div class="status-card"><p class="metric-label">FPS</p><p class="metric-value">{1000/latency:.1f}</p></div>', unsafe_allow_html=True)
+            m_lat.markdown(f'<div class="status-card"><p class="metric-label">LATENCY</p><p class="metric-value">{latency:.1f}ms</p></div>', unsafe_allow_html=True)
+            m_exit.markdown(f'<div class="status-card"><p class="metric-label">ACTIVE PATH</p><p class="metric-value">{stage}</p></div>', unsafe_allow_html=True)
+            m_objs.markdown(f'<div class="status-card"><p class="metric-label">OBJECTS</p><p class="metric-value">{len(res.boxes)}</p></div>', unsafe_allow_html=True)
             
             if torch.cuda.is_available():
                 free, total = torch.cuda.mem_get_info()
-                vram_perc = (total - free) / total * 100
-                metric_vram.metric("GPU VRAM Utilization", f"{vram_perc:.1f}%", f"{free/1024**2:.0f}MB Free")
+                vram_used = (total - free) / (1024**2)
+                m_vram.markdown(f'<div class="status-card"><p class="metric-label">VRAM USED</p><p class="metric-value">{vram_used:.0f}MB</p></div>', unsafe_allow_html=True)
 
-            # Detected list
-            obj_names = []
-            if num_objs > 0:
-                for box in results.boxes:
-                    cls_id = int(box.cls[0].item())
-                    name = results.names[cls_id]
-                    obj_names.append(f"- **{name}** ({box.conf[0].item():.2%})")
-            
-            objects_list.markdown("\n".join(obj_names) if obj_names else "No objects detected.")
-            
-            time.sleep(0.01)
-            
+            time.sleep(0.001)
+
     except Exception as e:
-        st.error(f"Stream interrupted: {e}")
+        st.error(f"System Error: {e}")
 
 if __name__ == "__main__":
     main()
