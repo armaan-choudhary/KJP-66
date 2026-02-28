@@ -21,6 +21,15 @@ The system intelligently scales tokens only when necessary, maximizing throughpu
 ### 3. Blackwell Hardware Acceleration
 - **TF32 & BF16 AMP:** Optimized for the new math kernels in RTX 50-series.
 - **Dynamic VRAM Scaling:** Real-time hardware monitoring and memory allocation.
+- **Real-time Telemetry:** Live tracking of **GPU Compute Load**, **VRAM Allocation**, and **System RAM** pressure.
+
+---
+
+## 🛡 Hardware Observability & Health
+PrismNet provides a comprehensive "System Health" cockpit designed for mission-critical edge deployment:
+- **GPU Load Percentage:** Dynamic monitoring of Blackwell Tensor Core utilization.
+- **Memory Footprint:** Precise breakdown of process-specific vs. system-wide memory usage.
+- **Predictive Health Report:** Real-time analysis of resource pressure to ensure long-term stability.
 
 ---
 

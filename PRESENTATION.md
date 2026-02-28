@@ -33,6 +33,13 @@ Blackwell Performance: RTX 50-series Optimization
 - Result: Squeezing maximum throughput out of the latest laptop GPU architecture
 ---
 
+Hardware Observability: The System Cockpit
+
+- Real-time Telemetry: Live tracking of GPU Compute Load and VRAM status
+- System Health: Dynamic monitoring of RAM pressure and process stability
+- Readiness: Professional-grade observability for mission-critical edge deployment
+---
+
 Project Impact & Hackathon Summary
 
 - Requirement met: Real-time inference achieved for large-scale transformer models
