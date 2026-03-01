@@ -72,13 +72,22 @@ def main():
         st.markdown("---")
         with st.expander("COCO val2017 Benchmarks", expanded=False):
             st.markdown("""
-            <div style="font-size:0.8rem; color:#8a949e; line-height:1.6;">
-            <b>mAP@0.5:0.95 vs Latency Drop</b><br>
-            • <b>Baseline:</b> 0.534 mAP | <i>133.68ms</i><br>
-            • <b>Pruned L1:</b> 0.501 (-6.1%) | <i>-35.3%</i><br>
-            • <b>Quant INT8:</b> 0.500 (-6.3%) | <i>-46.8%</i><br>
-            • <b>TensorRT:</b> 0.528 (-1.1%) | <b style="color:#4ade80;">-84.2%</b>
-            </div>
+            <style>
+            .coco-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; color: #8a949e; text-align: right; }
+            .coco-table th { text-align: right; padding: 4px; border-bottom: 1px solid #ffffff11; font-weight: 600; color: #ffffff; }
+            .coco-table td { padding: 4px; border-bottom: 1px solid #ffffff05; }
+            .coco-table tr:last-child td { border-bottom: none; }
+            .coco-table td:first-child, .coco-table th:first-child { text-align: left; }
+            .highlight-green { color: #4ade80; font-weight: bold; }
+            .highlight-orange { color: #ff8743; font-weight: bold; }
+            </style>
+            <table class="coco-table">
+                <tr><th>Tier</th><th>mAP</th><th>Latency</th></tr>
+                <tr><td>Baseline</td><td>0.534</td><td>133.68ms</td></tr>
+                <tr><td>Pruned L1</td><td>0.501</td><td>86.42ms</td></tr>
+                <tr><td>Quant INT8</td><td>0.500</td><td>71.10ms</td></tr>
+                <tr><td class="highlight-orange">TensorRT</td><td>0.528</td><td class="highlight-green">21.06ms</td></tr>
+            </table>
             """, unsafe_allow_html=True)
 
     # Initialization
