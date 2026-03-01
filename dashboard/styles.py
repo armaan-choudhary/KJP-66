@@ -1,9 +1,7 @@
 import streamlit as st
 
 def apply_prism_theme():
-    """
-    Applies the ultra-compact Glassmorphism theme.
-    """
+    """Applies dashboard styling."""
     st.markdown("""
         <style>
         .stApp { background-color: #0c1116; }

@@ -12,7 +12,7 @@ from utils.compression import quantize_state_dict, load_quantized_state
 from dashboard.styles import apply_prism_theme, render_badge
 import core.config as cfg
 
-# 1. SETUP
+# Setup
 st.set_page_config(page_title=cfg.DASHBOARD_TITLE, page_icon=cfg.DASHBOARD_ICON, layout="wide", initial_sidebar_state="expanded")
 apply_prism_theme()
 allocate_vram()
@@ -32,7 +32,7 @@ def load_system_core():
         with st.spinner("Pruning Weights..."):
             quantize_state_dict(base_engine, opt_path)
             
-    # Load Optimized Student
+    # Load Optimized Engine
     opt_engine = get_rtdetr_engine(base_path)
     try:
         opt_engine = load_quantized_state(opt_engine, opt_path)
@@ -57,7 +57,7 @@ def load_system_core():
     return baseline_dynamic, prism_dynamic, trt_dynamic, opt_path
 
 def main():
-    # 2. SIDEBAR
+    # Sidebar
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PRISMNET")
@@ -81,7 +81,7 @@ def main():
             </div>
             """, unsafe_allow_html=True)
 
-    # 3. INITIALIZATION
+    # Initialization
     with st.spinner("Syncing PrismNet Engine..."):
         baseline_res, prism_res, trt_res, opt_file = load_system_core()
         baseline_res.threshold = thresh
@@ -97,7 +97,7 @@ def main():
         cap = st.session_state.cap
         if not cap: st.error("No Camera Detection"); return
 
-    # 4. LAYOUT
+    # Layout
     col_feed, col_telemetry = st.columns([3.5, 1])
     with col_feed:
         feed = st.empty()

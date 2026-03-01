@@ -4,15 +4,14 @@ import os
 # --- Model Configurations ---
 MODEL_BASE = "rtdetr-x.pt"
 MODEL_OPTIMIZED = "prismnet_compressed.pt"
-MODEL_TRT = "rtdetr-x.engine"  # Hardware-Accelerated TensorRT Engine
-COCO_CLASSES = 80 # Real class count for RT-DETR-X (Pretrained)
+MODEL_TRT = "rtdetr-x.engine"
+COCO_CLASSES = 80
 
 # --- Compression Settings ---
 PRUNING_RATIO = 0.3
 QUANTIZATION_DTYPE = 'INT8'
 INT8_MAX_VAL = 127.0
 MODEL_PRUNED = "prismnet_pruned.pt"
-MODEL_QUANTIZED = "prismnet_compressed.pt"
 MODEL_QUANTIZED = "prismnet_compressed.pt"
 
 # --- Inference Settings ---

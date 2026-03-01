@@ -5,7 +5,7 @@ import os
 import core.config as cfg
 
 def check_sparsity(model):
-    """Calculates and prints the sparsity (percentage of zero weights) of the model."""
+    """Calculates and prints model sparsity."""
     total_zeros = 0
     total_elements = 0
     for name, module in model.named_modules():
@@ -19,12 +19,12 @@ def check_sparsity(model):
 
 def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed.pt", sparsity=0.3, run_tensorrt_export=False):
     """
-    Executes the GB-03 optimization pipeline:
-    1. L1 Unstructured Pruning (30% sparsity factor)
-    2. Model quantization & formatting (to INT8 disk footprint ~65MB)
-    3. (Optional) NVIDIA TensorRT C++ Compilation for max FPS
+    Executes optimization pipeline:
+    1. L1 Unstructured Pruning
+    2. Model quantization to INT8
+    3. (Optional) TensorRT Compilation
     """
-    print(f"\n--- PrismNet: Formal Model Compression Pipeline ---")
+    print(f"\n--- Compression Pipeline ---")
     print(f"Loading baseline model: {source_path}")
     
     # Needs to be a fresh Ultralytics load to hook into the graph properly
@@ -34,7 +34,7 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     print(f"\n[1/3] Applying L1 Unstructured Pruning (Ratio: {sparsity})...")
     
     modules_to_prune = []
-    # Target heavy linear and conv blocks in the Vision Transformer
+    # Target linear and conv blocks
     for name, module in model.model.named_modules():
         if isinstance(module, torch.nn.Conv2d):
             modules_to_prune.append((module, 'weight'))
@@ -56,10 +56,8 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     print(f"Global Sparsity: {global_sparsity:.2f}%")
     
     # 2. Quantization Stage
-    print(f"\n[2/3] Applying Post-Training INT8 Quantization...")
-    # NOTE: PyTorch dynamic_quantize bloats the state dict because the RTDETR architecture 
-    # uses unsupported structures. We instead mimic a Quantized State Dict saving the weights 
-    # in physical int8 structure on disk.
+    print(f"\n[2/3] Applying INT8 Quantization...")
+    # Custom quantization loop
     
     quantized_state = {}
     for name, param in model.model.state_dict().items():
@@ -82,12 +80,12 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     print(f"Compressed Size: {opt_size:.2f} MB")
     print(f"Total Reduction: {(1 - opt_size/base_size)*100:.2f}%\n")
     
-    # 3. NVIDIA TensorRT Hardware Compilation Stage
+    # 3. TensorRT Compilation Stage
     if run_tensorrt_export:
-        print(f"\n--- NVIDIA TensorRT Accelerator Pipeline ---")
-        print(f"Compiling [{source_path}] to Native TensorRT Engine...")
+        print(f"\n--- TensorRT Pipeline ---")
+        print(f"Compiling [{source_path}] to TensorRT Engine...")
         print(f"Targeting: {torch.cuda.get_device_name(0)}")
-        print("This optimizes CUDA kernels natively (may take up to 2-3 minutes).")
+        print("This may take a few minutes.")
         try:
             trt_path = model.export(format='engine', half=True, dynamic=False, int8=False, imgsz=cfg.STAGE2_MAX_RES)
             print(f"TensorRT Engine successfully saved to: {trt_path}")

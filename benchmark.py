@@ -7,8 +7,8 @@ from core.resolver import DynamicRTDETR
 from utils.hardware import allocate_vram
 import core.config as cfg
 
-# PrismNet Project: Final Transformer Benchmark Suite
-print("--- PrismNet: RT-DETR Performance Benchmark ---")
+# RT-DETR Benchmark Suite
+print("--- Benchmark Suite ---")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 allocate_vram()
@@ -46,15 +46,15 @@ def run_full_benchmark():
     size_base = os.path.getsize(cfg.MODEL_BASE) / (1024*1024)
     size_opt = os.path.getsize(cfg.MODEL_OPTIMIZED) / (1024*1024)
     
-    # 2. Benchmark Baseline (Fixed Max Res)
-    print(f"\n[1/3] Benchmarking Baseline (FP32 | {cfg.STAGE2_MAX_RES}px)...")
+    # 2. Benchmark Baseline
+    print(f"\n[1/4] Benchmarking Baseline (FP32 | {cfg.STAGE2_MAX_RES}px)...")
     t0 = time.time()
     for _ in range(30):
         _ = shared_rtdetr.predict(dummy, imgsz=cfg.STAGE2_MAX_RES, verbose=False)
     lat_base = (time.time() - t0) / 30 * 1000
     results[f"Baseline ({cfg.STAGE2_MAX_RES}px)"] = {"latency": round(lat_base, 2), "fps": round(1000/lat_base, 2), "size_mb": round(size_base, 2)}
     
-    # 3. Benchmark Turbo (Fixed Min Res)
+    # 3. Benchmark Turbo
     print(f"\n[2/4] Benchmarking Turbo (FP32 | {cfg.STAGE1_MIN_RES}px)...")
     t0 = time.time()
     for _ in range(30):
@@ -63,8 +63,7 @@ def run_full_benchmark():
     results[f"Turbo ({cfg.STAGE1_MIN_RES}px)"] = {"latency": round(lat_turbo, 2), "fps": round(1000/lat_turbo, 2), "size_mb": round(size_base, 2)}
     
     # 4. PrismNet Optimized (Dynamic)
-    # Simulate a mix of complexities by forcing the model to early exit (simulating a confident frame)
-    print("\n[3/4] Benchmarking PrismNet Compressed (L1 Pruned + INT8 | Early Exit Active)...")
+    print("\n[3/4] Benchmarking Compressed (L1 Pruned + INT8 | Early Exit Active)...")
     dynamic.threshold = 0.0 # Force immediate early exit to showcase Turbo latency
     t0 = time.time()
     for _ in range(30):
@@ -72,8 +71,8 @@ def run_full_benchmark():
     lat_prism = (time.time() - t0) / 30 * 1000
     results["PrismNet Compressed"] = {"latency": round(lat_prism, 2), "fps": round(1000/lat_prism, 2), "size_mb": round(size_opt, 2)}
     
-    # 4. NVIDIA TensorRT Accelerated
-    print("\n[4/4] Benchmarking PrismNet Accelerated (TensorRT Native)...")
+    # 5. NVIDIA TensorRT Accelerated
+    print("\n[4/4] Benchmarking Accelerated (TensorRT Native)...")
     try:
         if os.path.exists(cfg.MODEL_TRT):
             trt_engine = get_rtdetr_engine(cfg.MODEL_TRT)

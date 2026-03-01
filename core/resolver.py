@@ -3,9 +3,7 @@ import time
 from core.config import DEFAULT_THRESHOLD, STAGE1_MIN_RES, STAGE2_MAX_RES, DETECTION_CONF, MODEL_STRIDE, PRECISION_BASELINE, PRECISION_OPTIMIZED
 
 class DynamicRTDETR:
-    """
-    Resolution-Aware Dynamic Inference Resolver.
-    """
+    """Dynamic Inference Resolver."""
     def __init__(self, model_instance, threshold=DEFAULT_THRESHOLD, is_optimized=True, is_tensorrt=False):
         self.model = model_instance
         self.threshold = threshold
@@ -32,13 +30,13 @@ class DynamicRTDETR:
             s2_h = min(STAGE2_MAX_RES, (h // MODEL_STRIDE) * MODEL_STRIDE)
             s2_w = int((s2_h * aspect // MODEL_STRIDE) * MODEL_STRIDE)
         
-        # Stage 1: Turbo Scan
+        # Stage 1
         if self.is_optimized:
-            # OPTIMIZED (Compressed): Uses Pruned INT8 Storage Model with Native FP16 Execution
+            # Optimized pass
             with torch.no_grad():
                 res1 = self.model.predict(frame, imgsz=(s1_h, s1_w), conf=DETECTION_CONF, half=True, verbose=False)[0]
         else:
-            # BASELINE: Force Full Pure FP32 Precision (No Optimizations)
+            # Baseline pass
             torch.set_float32_matmul_precision(PRECISION_BASELINE)
             self.model.model.float()
             with torch.no_grad():
@@ -55,9 +53,9 @@ class DynamicRTDETR:
             else: latency = (time.time() - t0) * 1000
             return res1, 1, latency, f"{s1_w}x{s1_h}"
             
-        # Stage 2: Precision Pass
+        # Stage 2
         if self.is_optimized:
-            # OPTIMIZED (Compressed): Uses Pruned INT8 Storage Model with Native FP16 Execution
+            # Optimized pass
             with torch.no_grad():
                 res2 = self.model.predict(frame, imgsz=(s2_h, s2_w), conf=DETECTION_CONF, half=True, verbose=False)[0]
         else:

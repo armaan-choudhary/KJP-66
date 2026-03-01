@@ -3,8 +3,8 @@ import argparse
 
 import core.config as cfg
 
-# PrismNet Project: Unified Entry Point
-print("--- PrismNet: On-Device RT-DETR Optimization ---")
+# Entry Point
+print("--- PRISMNET ---")
 
 def main():
     parser = argparse.ArgumentParser(description="PrismNet: Optimized Transformer Dashboard")
@@ -22,7 +22,7 @@ def main():
         benchmark_rtdetr(model)
         
     elif args.mode == "early-exit":
-        # Demonstrates the dynamic resolution system
+        # Test dynamic resolution system
         from core.engine import get_rtdetr_engine
         from core.resolver import DynamicRTDETR
         import numpy as np
@@ -41,8 +41,8 @@ def main():
         from benchmark_coco import run_coco_eval
         run_coco_eval(args.coco_mode, args.data_dir)
         
-    else: # app (default)
-        print("Launching PrismNet Modern Minimal Dashboard...")
+    else: # app mode
+        print("Launching dashboard...")
         os.system("streamlit run st_app.py")
 
 if __name__ == "__main__":

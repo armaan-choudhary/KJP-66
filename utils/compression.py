@@ -18,18 +18,14 @@ def quantize_state_dict(model_instance, target_path):
     torch.save({'model': quantized_dict}, target_path)
 
 def load_quantized_state(model_instance, source_path):
-    """
-    Dequantizes INT8 storage weights back to FP32 for max runtime execution speed.
-    Achieves 50% Disk Size Reduction while keeping FP32 Baseline Latency via caching.
-    """
+    """Dequantizes INT8 storage weights back to FP32 for execution."""
     checkpoint = torch.load(source_path, map_location='cpu')
     quantized_state = checkpoint['model']
     fp32_state = {}
     
     for k, v in quantized_state.items():
         if isinstance(v, dict) and 's' in v:
-            # Reconstruct and strictly cast to standard FP32 for zero-conversion execution speed
-            # ALWAYS use .contiguous() to prevent cuDNN falling back to slow unoptimized kernels
+            # Restore to FP32 and ensure contiguous memory for cuDNN
             fp32_state[k] = (v['w'].to(torch.float32) * v['s']).to(torch.float32).contiguous()
         else:
             if v.is_floating_point():
