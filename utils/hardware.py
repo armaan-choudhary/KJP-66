@@ -47,18 +47,23 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
             
         # Suppress OpenCV FFMPEG Tracebacks on corrupt indices
         os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
-        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
+        
+        # Try default backend first
+        cap = cv2.VideoCapture(i)
         
         if cap.isOpened():
-            # Verify the camera can actually return frames
-            ret, _ = cap.read()
-            if ret:
-                cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
-                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
-                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                return cap, i
-            else:
-                cap.release()
+            # Try a few times to get a frame, some cameras are slow to boot
+            for _ in range(5):
+                ret, _ = cap.read()
+                if ret:
+                    cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+                    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+                    cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                    return cap, i
+                import time
+                time.sleep(0.1)
+                
+            cap.release()
                 
     return None, None
 
