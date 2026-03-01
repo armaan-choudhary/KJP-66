@@ -121,7 +121,7 @@ def main():
         prism_res.threshold = thresh
         if trt_res is not None: trt_res.threshold = thresh
         prism_res.threshold = thresh
-        # Reinitialize camera if cam_id changed or cap is invalid
+        # Reinitialize camera only if cam_id changed or not yet acquired
         if "cap" not in st.session_state or st.session_state.get("cam_id") != cam_id:
             if "cap" in st.session_state and st.session_state.cap is not None:
                 try:
@@ -130,17 +130,9 @@ def main():
                 st.session_state.cap = None
                 time.sleep(0.5)  # Let the OS release the V4L2 buffer lock
                 
-            # Retry camera acquisition up to 3 times
-            for attempt in range(3):
-                cap_try, cam_idx = get_system_cam(cam_id)
-                if cap_try is not None:
-                    st.session_state.cap = cap_try
-                    st.session_state.cam_id = cam_id
-                    break
-                time.sleep(0.3)
-            else:
-                st.session_state.cap = None
-                st.session_state.cam_id = cam_id
+            cap_try, _ = get_system_cam(cam_id)
+            st.session_state.cap = cap_try
+            st.session_state.cam_id = cam_id
             
         cap = st.session_state.cap
         if not cap: st.error("No Camera Detection"); return

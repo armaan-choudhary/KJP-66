@@ -45,10 +45,8 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
         if not os.stat(video_path).st_mode & 0o20000:
             continue
             
-        # Suppress OpenCV FFMPEG Tracebacks on corrupt indices
-        os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
-        
-        # Try default backend first
+        # Silence OpenCV's V4L2 backend trace logs at the cv2 layer
+        cv2.setLogLevel(cv2.LOG_LEVEL_SILENT)
         cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         
         if cap.isOpened():
