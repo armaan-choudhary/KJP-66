@@ -10,3 +10,4 @@ requests
 psutil
 pycocotools
 tabulate
+pynvml

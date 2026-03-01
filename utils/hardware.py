@@ -15,9 +15,13 @@ def get_gpu_status():
     """Returns MiB used and Load percentage."""
     if not torch.cuda.is_available(): return 0, "N/A"
     try:
-        f, t = torch.cuda.mem_get_info()
-        used = (t-f)/(1024**2)
-        load = torch.cuda.utilization()
+        import pynvml
+        pynvml.nvmlInit()
+        handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+        mem_info = pynvml.nvmlDeviceGetMemoryInfo(handle)
+        utilization = pynvml.nvmlDeviceGetUtilizationRates(handle)
+        used = mem_info.used / (1024**2)
+        load = utilization.gpu
         return used, load
     except: return 0, "N/A"
 
