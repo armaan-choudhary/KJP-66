@@ -36,44 +36,31 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
             indices_to_check.append(i)
             
     for i in indices_to_check:
-        # Prevent OpenCV from throwing C++ level FFMPEG warnings if device doesn't exist
-        if not os.path.exists(f"/dev/video{i}"):
+        # Probe hardware path
+        video_path = f"/dev/video{i}"
+        if not os.path.exists(video_path):
             continue
             
-        # Suppress OpenCV warning logs for cleaner terminal output
+        # Ensure it's a character device (cameras are char devices)
+        if not os.stat(video_path).st_mode & 0o20000:
+            continue
+            
+        # Suppress OpenCV FFMPEG Tracebacks on corrupt indices
         os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
         cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         
         if cap.isOpened():
-            cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
-            cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
-            cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-            return cap, i
-            
-    # Fallback to simulated camera if no hardware is found
-    class DummyVideo:
-        def __init__(self):
-            import numpy as np
-            self.np = np
-            self.width = CAM_WIDTH
-            self.height = CAM_HEIGHT
-            self.frame_count = 0
-            
-        def isOpened(self): return True
-        def release(self): pass
-        def set(self, p, v): pass
-        
-        def read(self):
-            frame = self.np.zeros((self.height, self.width, 3), dtype=self.np.uint8)
-            # Create a moving shape to simulate live inference
-            x = (self.frame_count * 8) % self.width
-            cv2.circle(frame, (x, self.height // 2), 60, (67, 135, 255), -1)
-            cv2.putText(frame, "NO CAMERA DETECTED - SIMULATION FEED", (40, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
-            cv2.putText(frame, "GB-03 HARDWARE BENCHMARKING ACTIVE", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,200), 1)
-            self.frame_count += 1
-            return True, frame
-            
-    return DummyVideo(), "SIM"
+            # Verify the camera can actually return frames
+            ret, _ = cap.read()
+            if ret:
+                cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
+                cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
+                cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
+                return cap, i
+            else:
+                cap.release()
+                
+    return None, None
 
 def get_model_mb(path):
     if os.path.exists(path):
