@@ -137,8 +137,10 @@ def mock_validate(model_name, path):
         return {"mAP@0.5:0.95": 0.534, "mAP@0.5": 0.722, "mAP@0.75": 0.581, "Latency_ms": 133.68}
     elif "Pruned" in model_name:
         return {"mAP@0.5:0.95": 0.501, "mAP@0.5": 0.698, "mAP@0.75": 0.542, "Latency_ms": 86.42}
-    elif "Quantized" in model_name:
+    elif "Quant" in model_name and "Pruned" not in model_name:
         return {"mAP@0.5:0.95": 0.500, "mAP@0.5": 0.697, "mAP@0.75": 0.540, "Latency_ms": 71.10}
+    elif "Combined" in model_name or "Optimized" in model_name:
+        return {"mAP@0.5:0.95": 0.499, "mAP@0.5": 0.695, "mAP@0.75": 0.538, "Latency_ms": 68.74}
     elif "TensorRT" in model_name:
         return {"mAP@0.5:0.95": 0.528, "mAP@0.5": 0.718, "mAP@0.75": 0.570, "Latency_ms": 21.06}
     return None

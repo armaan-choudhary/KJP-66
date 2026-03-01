@@ -79,7 +79,8 @@ def main():
                     res = []
                     models = [("Baseline FP32", cfg.MODEL_BASE), 
                               ("Pruned L1 (30%)", cfg.MODEL_PRUNED), 
-                              ("Quantized INT8", cfg.MODEL_QUANTIZED), 
+                              ("Quantized INT8", cfg.MODEL_QUANTIZED),
+                              ("Optimized (Pruned + Quant)", cfg.MODEL_OPTIMIZED),
                               ("TensorRT Engine", cfg.MODEL_TRT)]
                     for n, p in models:
                         m = mock_validate(n, p)
@@ -105,10 +106,18 @@ def main():
                 <tr><th>Tier</th><th>mAP</th><th>Latency*</th></tr>
             """
             for n, map_val, lat_val in metrics_data:
-                # Truncate labels for cleaner sidebar viewing
-                short_n = n.split()[0] + (" " + n.split()[1] if "Pruned" in n else "")
+                label_map = {
+                    "Baseline FP32": "Baseline",
+                    "Pruned L1 (30%)": "Pruned L1",
+                    "Quantized INT8": "Quant INT8",
+                    "Optimized (Pruned + Quant)": "Pruned + Quant",
+                    "TensorRT Engine": "TensorRT",
+                }
+                short_n = label_map.get(n, n.split()[0])
                 if "TensorRT" in n:
                     table_html += f'<tr><td class="highlight-orange">{short_n}</td><td>{map_val:.3f}</td><td class="highlight-green">{lat_val:.2f}ms</td></tr>\\n'
+                elif "Optimized" in n:
+                    table_html += f'<tr><td class="highlight-green">{short_n}</td><td>{map_val:.3f}</td><td>{lat_val:.2f}ms</td></tr>\\n'
                 else:
                     table_html += f'<tr><td>{short_n}</td><td>{map_val:.3f}</td><td>{lat_val:.2f}ms</td></tr>\\n'
             table_html += '            </table>'
