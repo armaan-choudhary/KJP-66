@@ -28,9 +28,9 @@ Technique 2: INT8 Post-Training Quantization
 
 Technique 3: Knowledge Distillation & TensorRT (Max FPS)
 
-- Mechanism: KL-Divergence Soft-Label Transfer (Teacher -> Student) & Native C++ compilation
-- Integration: Directly compiles the PyTorch Graph into an NVIDIA `.engine` format
-- Impact: 47.49 FPS throughput with a deterministic 21ms latency profile, bypassing all Python overhead!
+- Mechanism: KL-Divergence Soft-Label & Intermediate Encoder Layer Transfer (Teacher -> Student)
+- Integration: Teacher (130MB) structurally aligns with Student to mimic complex spatial logic scaling
+- Impact: 47.49 FPS throughput on TensorRT Engine bypassing all Python overhead, yielding a deterministic 21ms latency profile!
 ---
 
 High-Precision Engineering & Unified CLI
