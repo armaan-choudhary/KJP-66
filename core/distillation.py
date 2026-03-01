@@ -13,15 +13,20 @@ class KDLoss(nn.Module):
     Knowledge Distillation Loss combining hard labels (ground truth)
     and soft labels (teacher predictions) via KL-Divergence.
     """
-    def __init__(self, temperature=3.0, alpha=0.5, beta=0.3, query_threshold=0.3):
+    def __init__(self, temperature=3.0, alpha=0.5, beta=0.3, query_threshold=0.3, total_steps=1000):
         super(KDLoss, self).__init__()
+        assert alpha + beta <= 1.0, f"Alpha ({alpha}) + Beta ({beta}) must be <= 1.0 to ensure positive soft loss weighting."
         self.T = temperature
+        self.T_max = temperature
         self.alpha = alpha
         self.beta = beta
         self.query_threshold = query_threshold
         self.kl_div = nn.KLDivLoss(reduction='none')
         self.teacher_feat = None
         self.student_feat = None
+        self.feat_projector = None
+        self.current_step = 0
+        self.total_steps = total_steps
         
     @staticmethod
     def extract_logits_boxes(out):
@@ -37,12 +42,11 @@ class KDLoss(nn.Module):
         return out, None
         
     def anneal_temperature(self, current_step, total_steps, T_min=1.0):
-        if not hasattr(self, 'T_max'):
-            self.T_max = self.T
         import math
         self.T = T_min + 0.5 * (self.T_max - T_min) * (1 + math.cos(math.pi * current_step / total_steps))
 
     def forward(self, student_output, teacher_output, labels=None, hard_loss_fn=None):
+        self.current_step += 1
         s_logits, s_boxes = self.extract_logits_boxes(student_output)
         t_logits, t_boxes = self.extract_logits_boxes(teacher_output)
         
@@ -63,7 +67,16 @@ class KDLoss(nn.Module):
             
         # 3. Intermediate Feature Loss
         if self.student_feat is not None and self.teacher_feat is not None:
-            loss_feat = F.mse_loss(self.student_feat, self.teacher_feat)
+            s_feat = self.student_feat
+            t_feat = self.teacher_feat
+            
+            # Lazy initialize projector if channels mismatch
+            if s_feat.shape[1] != t_feat.shape[1]:
+                if self.feat_projector is None:
+                    self.feat_projector = nn.Conv2d(s_feat.shape[1], t_feat.shape[1], kernel_size=1, bias=False).to(s_feat.device)
+                s_feat = self.feat_projector(s_feat)
+                
+            loss_feat = F.mse_loss(s_feat, t_feat)
             self.student_feat = None
             self.teacher_feat = None
         else:
@@ -71,6 +84,9 @@ class KDLoss(nn.Module):
         
         # 4. Combined Loss
         total_loss = (self.alpha * loss_hard) + (1 - self.alpha - self.beta) * loss_soft + (self.beta * loss_feat)
+        
+        # Auto-anneal temperature
+        self.anneal_temperature(self.current_step, self.total_steps)
         
         return {
             'total': total_loss,
@@ -119,9 +135,23 @@ def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MO
     def get_hook_t(m, i, o): kd_loss_fn.teacher_feat = o
     def get_hook_s(m, i, o): kd_loss_fn.student_feat = o
     
-    if len(teacher_model.model) > 27:
-        teacher_model.model[27].register_forward_hook(get_hook_t)
-        student_model.model[27].register_forward_hook(get_hook_s)
+    def attach_encoder_hook(model, hook_fn):
+        # Find the last Conv2d layer in the encoder section
+        last_conv = None
+        for name, module in model.named_modules():
+            if isinstance(module, nn.Conv2d) and ('encoder' in name.lower() or 'backbone' in name.lower() or int(name.split('.')[1] if len(name.split('.')) > 1 and name.split('.')[1].isdigit() else -1) < 28):
+                last_conv = module
+        
+        if last_conv is not None:
+            last_conv.register_forward_hook(hook_fn)
+            return True
+        return False
+
+    t_hooked = attach_encoder_hook(teacher_model.model, get_hook_t)
+    s_hooked = attach_encoder_hook(student_model.model, get_hook_s)
+    
+    if not (t_hooked and s_hooked):
+        print("Warning: Could not dynamically align Encoder Conv2d layers. Feature Distillation skipped.")
         
     scaler = torch.amp.GradScaler('cuda') if torch.cuda.is_available() else None
     
@@ -172,9 +202,6 @@ def proxy_training_loop():
         loss_dict['total'].backward()
         optimizer.step()
         
-    # Anneal Temperature
-    kd_loss_fn.anneal_temperature(current_step=1, total_steps=100)
-    
     print(f"✅ Training step completed.")
     print(f"   -> KD Loss: {loss_dict['total'].item():.4f} (Soft: {loss_dict['soft'].item():.4f}, Hard: {loss_dict['hard'].item():.4f}, Feat: {loss_dict['feat'].item():.4f})")
     print("... Student implicitly learned complex feature extraction from Teacher logits and hidden layers.")
