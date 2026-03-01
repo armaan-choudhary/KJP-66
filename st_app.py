@@ -136,7 +136,7 @@ def main():
             
             fps = 1000/lat
             fps_buf.append(fps); lat_buf.append(lat)
-            feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB), use_column_width=True)
+            feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB))
             
             # Updates
             if "TensorRT" in mode:
