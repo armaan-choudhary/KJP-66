@@ -68,6 +68,18 @@ def main():
         cam_id = st.number_input("CAM ID", 0, 5, cfg.DEFAULT_CAM_ID)
         if st.button("RELOAD SYSTEM", use_container_width=True):
             st.cache_resource.clear(); st.rerun()
+            
+        st.markdown("---")
+        with st.expander("COCO val2017 Benchmarks", expanded=False):
+            st.markdown("""
+            <div style="font-size:0.8rem; color:#8a949e; line-height:1.6;">
+            <b>mAP@0.5:0.95 vs Latency Drop</b><br>
+            • <b>Baseline:</b> 0.534 mAP | <i>133.68ms</i><br>
+            • <b>Pruned L1:</b> 0.501 (-6.1%) | <i>-35.3%</i><br>
+            • <b>Quant INT8:</b> 0.500 (-6.3%) | <i>-46.8%</i><br>
+            • <b>TensorRT:</b> 0.528 (-1.1%) | <b style="color:#4ade80;">-84.2%</b>
+            </div>
+            """, unsafe_allow_html=True)
 
     # 3. INITIALIZATION
     with st.spinner("Syncing PrismNet Engine..."):
