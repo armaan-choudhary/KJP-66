@@ -80,7 +80,6 @@ def main():
                     models = [("Baseline FP32", cfg.MODEL_BASE), 
                               ("Pruned L1 (30%)", cfg.MODEL_PRUNED), 
                               ("Quantized INT8", cfg.MODEL_QUANTIZED),
-                              ("Optimized (Pruned + Quant)", cfg.MODEL_OPTIMIZED),
                               ("TensorRT Engine", cfg.MODEL_TRT)]
                     for n, p in models:
                         m = mock_validate(n, p)
