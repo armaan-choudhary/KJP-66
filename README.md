@@ -44,7 +44,7 @@ To ensure optimizations are accurate, we use **Hardware-Synced Timing** via `tor
 
 ## 🛡 Hardware Observability & Health
 PrismNet provides a comprehensive "System Health" cockpit:
-- **GPU Load Percentage:** Dynamic monitoring of Blackwell Tensor Core utilization.
+- **GPU Load Percentage:** Dynamic monitoring of Blackwell Tensor Core utilization via native NVML (`nvidia-ml-py`), bypassing PyTorch readout bugs.
 - **Memory Footprint:** Precise breakdown of process-specific vs. system-wide VRAM.
 - **Predictive Health Report:** Real-time analysis of resource pressure.
 

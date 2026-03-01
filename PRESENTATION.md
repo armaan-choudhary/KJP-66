@@ -42,7 +42,7 @@ High-Precision Engineering & Unified CLI
 
 Hardware Observability: The System Cockpit
 
-- Real-time Telemetry: Live tracking of GPU Compute Load and VRAM status
+- Real-time Telemetry: Live tracking of GPU Compute Load and VRAM status via NVML (`nvidia-ml-py`)
 - System Health: Dynamic monitoring of RAM pressure and process stability
 - Native Badge: Automated hardware detection for Blackwell Compute Capability
 ---
