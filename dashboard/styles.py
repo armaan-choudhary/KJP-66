@@ -7,7 +7,6 @@ def apply_prism_theme():
     st.markdown("""
         <style>
         .stApp { background-color: #0c1116; }
-        header {visibility: hidden;}
         .main .block-container { padding-top: 1rem; padding-bottom: 1rem; }
         
         .metric-box {
