@@ -17,11 +17,11 @@ def check_sparsity(model):
     print(f"Global Sparsity: {sparsity:.2f}%")
     return sparsity
 
-def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed.pt", sparsity=0.3, run_tensorrt_export=False):
+def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed.pt", sparsity=0.3, run_tensorrt_export=False, skip_quantization=False):
     """
     Executes optimization pipeline:
     1. L1 Unstructured Pruning
-    2. Model quantization to INT8
+    2. Model quantization to INT8 (optional)
     3. (Optional) TensorRT Compilation
     """
     print(f"\n--- Compression Pipeline ---")
@@ -55,23 +55,25 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     global_sparsity = check_sparsity(model.model)
     print(f"Global Sparsity: {global_sparsity:.2f}%")
     
-    # 2. Quantization Stage
-    print(f"\n[2/3] Applying INT8 Quantization...")
-    # Custom quantization loop
-    
-    quantized_state = {}
-    for name, param in model.model.state_dict().items():
-        if param.is_floating_point():
-            # Store at 8-bit scale
-            scale = param.abs().max() / cfg.INT8_MAX_VAL
-            if scale == 0: scale = 1.0
-            q_v = torch.round(param / scale).to(torch.int8)
-            quantized_state[name] = {'w': q_v, 's': scale}
-        else:
-            quantized_state[name] = param
-            
-    print(f"\n[3/3] Saving compressed model to {target_path}...")
-    torch.save({'model': quantized_state}, target_path)
+    # 2. Quantization Stage (optional)
+    if skip_quantization:
+        print(f"\n[2/3] Skipping INT8 Quantization (pruned-only export)...")
+        print(f"\n[3/3] Saving pruned model to {target_path}...")
+        model.model.save(target_path)
+    else:
+        print(f"\n[2/3] Applying INT8 Quantization...")
+        quantized_state = {}
+        for name, param in model.model.state_dict().items():
+            if param.is_floating_point():
+                scale = param.abs().max() / cfg.INT8_MAX_VAL
+                if scale == 0: scale = 1.0
+                q_v = torch.round(param / scale).to(torch.int8)
+                quantized_state[name] = {'w': q_v, 's': scale}
+            else:
+                quantized_state[name] = param
+                
+        print(f"\n[3/3] Saving compressed model to {target_path}...")
+        torch.save({'model': quantized_state}, target_path)
     
     base_size = os.path.getsize(source_path) / (1024 * 1024)
     opt_size = os.path.getsize(target_path) / (1024 * 1024)
@@ -87,7 +89,7 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
         print(f"Targeting: {torch.cuda.get_device_name(0)}")
         print("This may take a few minutes.")
         try:
-            trt_path = model.export(format='engine', half=True, dynamic=False, int8=False, imgsz=cfg.STAGE2_MAX_RES)
+            trt_path = model.export(format='engine', half=True, dynamic=False, int8=True, imgsz=cfg.STAGE2_MAX_RES)
             print(f"TensorRT Engine successfully saved to: {trt_path}")
         except Exception as e:
             print(f"\nTensorRT Export Failed (Likely missing 'tensorrt' pip library natively): {e}")
