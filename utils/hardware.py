@@ -27,13 +27,29 @@ def get_gpu_status():
 
 def get_system_cam(manual_index=DEFAULT_CAM_ID):
     """Auto-scans for camera hardware."""
-    for i in [manual_index, 0, 1, 2]:
-        cap = cv2.VideoCapture(i)
+    # Deduplicate indices to check
+    indices_to_check = []
+    if manual_index not in indices_to_check:
+        indices_to_check.append(manual_index)
+    for i in [0, 1, 2]:
+        if i not in indices_to_check:
+            indices_to_check.append(i)
+            
+    for i in indices_to_check:
+        # Prevent OpenCV from throwing C++ level FFMPEG warnings if device doesn't exist
+        if not os.path.exists(f"/dev/video{i}"):
+            continue
+            
+        # Suppress OpenCV warning logs for cleaner terminal output
+        os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
+        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
+        
         if cap.isOpened():
             cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAM_WIDTH)
             cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAM_HEIGHT)
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap, i
+            
     return None, None
 
 def get_model_mb(path):
