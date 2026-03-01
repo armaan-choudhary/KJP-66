@@ -13,12 +13,7 @@ QUANTIZATION_DTYPE = 'INT8'
 INT8_MAX_VAL = 127.0
 MODEL_PRUNED = "prismnet_pruned.pt"
 MODEL_QUANTIZED = "prismnet_compressed.pt"
-MODEL_DISTILLED = "rtdetr-resnet18.pt"
-MODEL_STUDENT = "rtdetr-resnet18.pt"
-
-# --- Distillation Settings ---
-KD_TEMPERATURE = 4.0
-KD_ALPHA = 0.3
+MODEL_QUANTIZED = "prismnet_compressed.pt"
 
 # --- Inference Settings ---
 DEFAULT_THRESHOLD = 0.75

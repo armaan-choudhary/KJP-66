@@ -26,10 +26,10 @@ Technique 2: INT8 Post-Training Quantization
 - Efficiency: Fast baseline mapping for native Edge GPU Execution
 ---
 
-Technique 3: Knowledge Distillation & TensorRT (Max FPS)
+Technique 3: NVIDIA TensorRT Hardware Compilation
 
-- Mechanism: KL-Divergence Soft-Label & Intermediate Encoder Layer Transfer (Teacher -> Student)
-- Integration: Teacher (130MB) structurally aligns with Student to mimic complex spatial logic scaling
+- Mechanism: Natively compiling the PyTorch computational graph directly to C++ SDK bindings
+- Integration: Replaces the heavyweight Python engine runtime exclusively for edge execution
 - Impact: 47.49 FPS throughput on TensorRT Engine bypassing all Python overhead, yielding a deterministic 21ms latency profile!
 ---
 

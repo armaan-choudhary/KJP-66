@@ -139,8 +139,6 @@ def mock_validate(model_name, path):
         return {"mAP@0.5:0.95": 0.501, "mAP@0.5": 0.698, "mAP@0.75": 0.542, "Latency_ms": 86.42}
     elif "Quantized" in model_name:
         return {"mAP@0.5:0.95": 0.500, "mAP@0.5": 0.697, "mAP@0.75": 0.540, "Latency_ms": 71.10}
-    elif "Distilled" in model_name:
-        return {"mAP@0.5:0.95": 0.528, "mAP@0.5": 0.718, "mAP@0.75": 0.570, "Latency_ms": 32.55}
     elif "TensorRT" in model_name:
         return {"mAP@0.5:0.95": 0.528, "mAP@0.5": 0.718, "mAP@0.75": 0.570, "Latency_ms": 21.06}
     return None
@@ -159,7 +157,6 @@ def run_coco_eval(mode, data_dir):
     if mode in ["baseline", "all"]: models_to_run.append(("Baseline FP32", cfg.MODEL_BASE))
     if mode in ["pruned", "all"]: models_to_run.append(("Pruned L1 (30%)", cfg.MODEL_PRUNED))
     if mode in ["quantized", "all"]: models_to_run.append(("Quantized INT8", cfg.MODEL_QUANTIZED))
-    if mode in ["distilled", "all"]: models_to_run.append(("Distilled Student", cfg.MODEL_DISTILLED))
     if mode in ["tensorrt", "all"]: models_to_run.append(("TensorRT Engine", cfg.MODEL_TRT))
     
     for name, path in models_to_run:

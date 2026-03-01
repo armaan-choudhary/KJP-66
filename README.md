@@ -11,11 +11,7 @@ We apply formal `torch.nn.utils.prune` L1 Unstructured Pruning logic specificall
 Following pruning, the entire state dictionary undergoes INT8 Quantization, compressing large floating-point arrays into strict integer bounds.
 - **Outcome:** Model size drops drastically from the FP32 Baseline (129.47 MB) strictly down to **65.12 MB**, a **~50% physical size reduction** compliant with GB-03's low-latency specification.
 
-### 3. Knowledge Distillation Engine
-We built a robust **KL-Divergence / Cross-Entropy** Distillation proxy (`core/distillation.py`). This framework securely projects and mimics internal Transformer encoder layers (`1x1 Conv2d` dynamic channels) while executing continuous cosine Temperature Annealing.
-- **Outcome:** The lightweight Student model intrinsically learns complex spatial logic directly from the massive Teacher without accuracy decay, all while scaled safely via Mixed-Precision (`torch.amp.GradScaler`).
-
-### 4. NVIDIA TensorRT Hardware Compilation
+### 3. NVIDIA TensorRT Hardware Compilation
 To shatter the FPS ceiling, the entire optimized Vision Transformer is natively compiled down into a C++ TensorRT `.engine` file via `core/compressor.py`.
 - **Outcome:** Bypassing the Python engine runtime entirely, the TRT pipeline hits an astonishing **47.49 FPS** (21.06ms Latency)—a colossal optimization leap over the original 7 FPS baseline.
 
@@ -82,7 +78,7 @@ The project features a single entry point (`main.py`) for all operations:
 - `main.py`: Unified system entry point.
 - `st_app.py`: Modern minimalist user-facing telemetry dashboard.
 - `benchmark.py`: Data-driven performance analysis suite with automated synthetic validation.
-- `core/`: Advanced implementation files covering the model loader, dynamic resolution resolver, distillation loops, and TensorRT engine constructors.
+- `core/`: Advanced implementation files covering the model loader, dynamic resolution resolver, and TensorRT engine constructors.
 - `tests/`: Designated deployment folder hosting verification tests (e.g. `test_st_app.py`).
 
 **Project PrismNet** — *The next generation of transformer-based edge vision.*

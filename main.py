@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser(description="PrismNet: Optimized Transformer Dashboard")
     parser.add_argument("--mode", type=str, choices=["baseline", "early-exit", "app", "benchmark", "coco-eval"], 
                         default="app", help="Run a specific part of the PrismNet pipeline")
-    parser.add_argument("--coco-mode", type=str, choices=["baseline", "pruned", "quantized", "distilled", "tensorrt", "all"], 
+    parser.add_argument("--coco-mode", type=str, choices=["baseline", "pruned", "quantized", "tensorrt", "all"], 
                         default="all", help="Model tier to evaluate for COCO metrics")
     parser.add_argument("--data-dir", type=str, default="datasets/coco", help="Path to COCO val2017 dataset")
     args = parser.parse_args()
