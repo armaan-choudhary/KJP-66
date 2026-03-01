@@ -50,7 +50,30 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
             cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
             return cap, i
             
-    return None, None
+    # Fallback to simulated camera if no hardware is found
+    class DummyVideo:
+        def __init__(self):
+            import numpy as np
+            self.np = np
+            self.width = CAM_WIDTH
+            self.height = CAM_HEIGHT
+            self.frame_count = 0
+            
+        def isOpened(self): return True
+        def release(self): pass
+        def set(self, p, v): pass
+        
+        def read(self):
+            frame = self.np.zeros((self.height, self.width, 3), dtype=self.np.uint8)
+            # Create a moving shape to simulate live inference
+            x = (self.frame_count * 8) % self.width
+            cv2.circle(frame, (x, self.height // 2), 60, (67, 135, 255), -1)
+            cv2.putText(frame, "NO CAMERA DETECTED - SIMULATION FEED", (40, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,255,255), 2)
+            cv2.putText(frame, "GB-03 HARDWARE BENCHMARKING ACTIVE", (40, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (200,200,200), 1)
+            self.frame_count += 1
+            return True, frame
+            
+    return DummyVideo(), "SIM"
 
 def get_model_mb(path):
     if os.path.exists(path):
