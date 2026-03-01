@@ -98,8 +98,11 @@ def main():
             .highlight-green { color: #4ade80; font-weight: bold; }
             .highlight-orange { color: #ff8743; font-weight: bold; }
             </style>
+            <div style="font-size: 0.75rem; color: #8a949e; margin-bottom: 8px; font-style: italic;">
+                *Latency metrics reflect initial evaluation. Live feed latency drops significantly post-warmup.
+            </div>
             <table class="coco-table">
-                <tr><th>Tier</th><th>mAP</th><th>Latency</th></tr>
+                <tr><th>Tier</th><th>mAP</th><th>Latency*</th></tr>
             """
             for n, map_val, lat_val in metrics_data:
                 # Truncate labels for cleaner sidebar viewing
