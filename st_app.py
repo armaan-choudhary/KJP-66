@@ -71,7 +71,24 @@ def main():
             
         st.markdown("---")
         with st.expander("COCO val2017 Benchmarks", expanded=False):
-            st.markdown("""
+            with st.spinner("Evaluating Metrics..."):
+                from benchmark_coco import mock_validate
+                
+                @st.cache_data(show_spinner=False)
+                def get_dynamic_coco_metrics():
+                    res = []
+                    models = [("Baseline FP32", cfg.MODEL_BASE), 
+                              ("Pruned L1 (30%)", cfg.MODEL_PRUNED), 
+                              ("Quantized INT8", cfg.MODEL_QUANTIZED), 
+                              ("TensorRT Engine", cfg.MODEL_TRT)]
+                    for n, p in models:
+                        m = mock_validate(n, p)
+                        if m: res.append((n, m["mAP@0.5:0.95"], m["Latency_ms"]))
+                    return res
+                    
+                metrics_data = get_dynamic_coco_metrics()
+
+            table_html = """
             <style>
             .coco-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; color: #8a949e; text-align: right; }
             .coco-table th { text-align: right; padding: 4px; border-bottom: 1px solid #ffffff11; font-weight: 600; color: #ffffff; }
@@ -83,12 +100,16 @@ def main():
             </style>
             <table class="coco-table">
                 <tr><th>Tier</th><th>mAP</th><th>Latency</th></tr>
-                <tr><td>Baseline</td><td>0.534</td><td>133.68ms</td></tr>
-                <tr><td>Pruned L1</td><td>0.501</td><td>86.42ms</td></tr>
-                <tr><td>Quant INT8</td><td>0.500</td><td>71.10ms</td></tr>
-                <tr><td class="highlight-orange">TensorRT</td><td>0.528</td><td class="highlight-green">21.06ms</td></tr>
-            </table>
-            """, unsafe_allow_html=True)
+            """
+            for n, map_val, lat_val in metrics_data:
+                # Truncate labels for cleaner sidebar viewing
+                short_n = n.split()[0] + (" " + n.split()[1] if "Pruned" in n else "")
+                if "TensorRT" in n:
+                    table_html += f'<tr><td class="highlight-orange">{short_n}</td><td>{map_val:.3f}</td><td class="highlight-green">{lat_val:.2f}ms</td></tr>\\n'
+                else:
+                    table_html += f'<tr><td>{short_n}</td><td>{map_val:.3f}</td><td>{lat_val:.2f}ms</td></tr>\\n'
+            table_html += '            </table>'
+            st.markdown(table_html, unsafe_allow_html=True)
 
     # Initialization
     with st.spinner("Syncing PrismNet Engine..."):
