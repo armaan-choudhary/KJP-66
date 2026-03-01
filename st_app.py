@@ -192,7 +192,9 @@ def main():
             elif "Baseline" in mode:
                 m_size.markdown(f'<div class="metric-box"><p class="m-label">Footprint (FP32 Baseline)</p><p class="m-value">{active_size:.1f} MB</p></div>', unsafe_allow_html=True)
             else:
-                m_size.markdown(f'<div class="metric-box" style="border-left-color: #4ade80;"><p class="m-label">Footprint (L1 Pruned + INT8)</p><p class="m-value">{active_size:.1f} MB <span style="font-size:0.75rem; color:#4ade80;">(-49.7%)</span></p></div>', unsafe_allow_html=True)
+                base_mb = get_model_mb(cfg.MODEL_BASE)
+                size_pct = ((base_mb - active_size) / base_mb * 100) if base_mb > 0 else 0
+                m_size.markdown(f'<div class="metric-box" style="border-left-color: #4ade80;"><p class="m-label">Footprint (L1 Pruned + INT8)</p><p class="m-value">{active_size:.1f} MB <span style="font-size:0.75rem; color:#4ade80;">(-{size_pct:.1f}%)</span></p></div>', unsafe_allow_html=True)
                 
             m_path.markdown(f'<div class="metric-box"><p class="m-label">Inference State</p><p class="m-value" style="font-size:0.9rem;">{path_txt}</p></div>', unsafe_allow_html=True)
             m_fps_num.markdown(f'<p class="m-value" style="color:#ff8743;">{fps:.1f} FPS</p>', unsafe_allow_html=True)
@@ -202,8 +204,8 @@ def main():
             if curr - last_ui >= cfg.UI_UPDATE_INTERVAL:
                 a_fps = sum(fps_buf)/len(fps_buf) if fps_buf else 0
                 a_lat = sum(lat_buf)/len(lat_buf) if lat_buf else 0
-                fps_hist = pd.concat([fps_hist, pd.DataFrame({"FPS": [a_fps]})], ignore_index=True)
-                lat_hist = pd.concat([lat_hist, pd.DataFrame({"Latency": [a_lat]})], ignore_index=True)
+                fps_hist = pd.concat([fps_hist, pd.DataFrame({"FPS": pd.array([a_fps], dtype="float64")})], ignore_index=True)
+                lat_hist = pd.concat([lat_hist, pd.DataFrame({"Latency": pd.array([a_lat], dtype="float64")})], ignore_index=True)
                 if len(fps_hist) > cfg.HISTORY_LIMIT:
                     fps_hist = fps_hist.iloc[1:]; lat_hist = lat_hist.iloc[1:]
                 fps_chart.line_chart(fps_hist, height=80)
