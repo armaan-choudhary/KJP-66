@@ -4,6 +4,11 @@ import time
 import os
 import psutil
 import pandas as pd
+import torch
+
+# Allow CUDA to use expandable memory segments to reduce fragmentation
+# This prevents CUBLAS_STATUS_NOT_INITIALIZED on GPUs with limited VRAM
+os.environ.setdefault("PYTORCH_CUDA_ALLOC_CONF", "expandable_segments:True")
 
 from core.engine import get_rtdetr_engine
 from core.resolver import DynamicRTDETR
@@ -19,6 +24,7 @@ allocate_vram()
 
 @st.cache_resource
 def load_system_core():
+    import torch
     base_path = cfg.MODEL_BASE
     opt_path = cfg.MODEL_OPTIMIZED
     trt_path = cfg.MODEL_TRT
@@ -26,6 +32,7 @@ def load_system_core():
     # Load Baseline
     base_engine = get_rtdetr_engine(base_path)
     base_engine.model.float() # Baseline FP32
+    torch.cuda.empty_cache()
     
     # Ensure Optimized File
     if not os.path.exists(opt_path):
@@ -39,20 +46,21 @@ def load_system_core():
     except:
         os.remove(opt_path)
         return load_system_core()
+    torch.cuda.empty_cache()
         
     # Wrappers
     baseline_dynamic = DynamicRTDETR(base_engine, is_optimized=False)
     prism_dynamic = DynamicRTDETR(opt_engine, is_optimized=True)
     
-    # TensorRT Support
+    # TensorRT Support — loaded last to avoid cuBLAS context conflicts
     trt_dynamic = None
     if os.path.exists(trt_path):
         try:
+            torch.cuda.empty_cache()
             trt_engine = get_rtdetr_engine(trt_path)
             trt_dynamic = DynamicRTDETR(trt_engine, is_optimized=True, is_tensorrt=True)
-        except Exception as e: 
-            print(f"TRT Engine Load Error: {e}")
-            pass
+        except Exception as e:
+            print(f"TRT Engine Load Error (check VRAM availability): {e}")
     
     return baseline_dynamic, prism_dynamic, trt_dynamic, opt_path
 
