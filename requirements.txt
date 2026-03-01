@@ -8,3 +8,5 @@ Pillow
 ultralytics
 requests
 psutil
+pycocotools
+tabulate
