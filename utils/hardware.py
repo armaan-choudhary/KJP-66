@@ -2,6 +2,7 @@ import torch
 import cv2
 import psutil
 import os
+os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
 from core.config import GPU_FRACTION, CAM_WIDTH, CAM_HEIGHT, DEFAULT_CAM_ID
 
 def allocate_vram():
@@ -45,8 +46,6 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
         if not os.stat(video_path).st_mode & 0o20000:
             continue
             
-        # Silence OpenCV's V4L2 backend trace logs at the cv2 layer
-        cv2.setLogLevel(cv2.LOG_LEVEL_SILENT)
         cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         
         if cap.isOpened():
