@@ -86,13 +86,21 @@ def compress_rtdetr(source_path=cfg.MODEL_BASE, target_path="prismnet_compressed
     if run_tensorrt_export:
         print(f"\n--- TensorRT Pipeline ---")
         print(f"Compiling [{source_path}] to TensorRT Engine...")
-        print(f"Targeting: {torch.cuda.get_device_name(0)}")
+        if torch.cuda.is_available():
+            print(f"Targeting: {torch.cuda.get_device_name(0)}")
         print("This may take a few minutes.")
         try:
-            trt_path = model.export(format='engine', half=True, dynamic=False, int8=True, imgsz=cfg.STAGE2_MAX_RES)
+            # Release the pruned/compressed model from VRAM before TRT compilation
+            # to avoid CUBLAS_STATUS_NOT_INITIALIZED on GPUs with limited VRAM
+            del model
+            torch.cuda.empty_cache()
+            
+            # TRT export from a fresh FP32 baseline — half=True handles precision quantization
+            trt_model = RTDETR(source_path)
+            trt_path = trt_model.export(format='engine', half=True, dynamic=False, int8=False, imgsz=cfg.STAGE2_MAX_RES)
             print(f"TensorRT Engine successfully saved to: {trt_path}")
         except Exception as e:
-            print(f"\nTensorRT Export Failed (Likely missing 'tensorrt' pip library natively): {e}")
+            print(f"\nTensorRT Export Failed: {e}")
 
 if __name__ == "__main__":
     compress_rtdetr(run_tensorrt_export=True)
