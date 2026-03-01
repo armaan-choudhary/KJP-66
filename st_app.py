@@ -136,7 +136,7 @@ def main():
             
             fps = 1000/lat
             fps_buf.append(fps); lat_buf.append(lat)
-            feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB), use_container_width=True)
+            feed.image(cv2.cvtColor(res.plot(), cv2.COLOR_BGR2RGB), use_column_width=True)
             
             # Updates
             if "TensorRT" in mode:
@@ -158,8 +158,8 @@ def main():
                 lat_hist = pd.concat([lat_hist, pd.DataFrame({"Latency": [a_lat]})], ignore_index=True)
                 if len(fps_hist) > cfg.HISTORY_LIMIT:
                     fps_hist = fps_hist.iloc[1:]; lat_hist = lat_hist.iloc[1:]
-                fps_chart.line_chart(fps_hist, height=80, use_container_width=True)
-                lat_chart.line_chart(lat_hist, height=80, use_container_width=True)
+                fps_chart.line_chart(fps_hist, height=80)
+                lat_chart.line_chart(lat_hist, height=80)
                 fps_buf = []; lat_buf = []; last_ui = curr
             
             used_v, load = get_gpu_status()
