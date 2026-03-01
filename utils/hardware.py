@@ -49,7 +49,7 @@ def get_system_cam(manual_index=DEFAULT_CAM_ID):
         os.environ["OPENCV_LOG_LEVEL"] = "FATAL"
         
         # Try default backend first
-        cap = cv2.VideoCapture(i)
+        cap = cv2.VideoCapture(i, cv2.CAP_V4L2)
         
         if cap.isOpened():
             # Try a few times to get a frame, some cameras are slow to boot
