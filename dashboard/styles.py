@@ -26,10 +26,15 @@ def apply_prism_theme():
         </style>
     """, unsafe_allow_html=True)
 
-def render_badge():
+def render_badge(mode="TensorRT (Accelerated)"):
     import torch
     
-    st.markdown("""<div style="background: rgba(74, 222, 128, 0.1); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #4ade80; margin-bottom: 10px;"><span style="color: #4ade80; font-weight: bold; font-size: 0.8rem;">📦 L1 PRUNED & INT8 QUANTIZED (GB-03)</span></div>""", unsafe_allow_html=True)
+    if "Baseline" in mode:
+        st.markdown("""<div style="background: rgba(138, 148, 158, 0.1); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #8a949e; margin-bottom: 10px;"><span style="color: #8a949e; font-weight: bold; font-size: 0.8rem;">📦 FP32 BASELINE (UNOPTIMIZED)</span></div>""", unsafe_allow_html=True)
+    elif "PrismNet" in mode:
+        st.markdown("""<div style="background: rgba(74, 222, 128, 0.1); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #4ade80; margin-bottom: 10px;"><span style="color: #4ade80; font-weight: bold; font-size: 0.8rem;">📦 L1 PRUNED & INT8 QUANTIZED (GB-03)</span></div>""", unsafe_allow_html=True)
+    else:
+        st.markdown("""<div style="background: rgba(59, 130, 246, 0.1); padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #3b82f6; margin-bottom: 10px;"><span style="color: #3b82f6; font-weight: bold; font-size: 0.8rem;">🚀 TENSORRT C++ ENGINE ACTIVE</span></div>""", unsafe_allow_html=True)
     
     if torch.cuda.is_available():
         gpu_name = torch.cuda.get_device_name(0)

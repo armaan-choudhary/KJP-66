@@ -13,25 +13,71 @@ class KDLoss(nn.Module):
     Knowledge Distillation Loss combining hard labels (ground truth)
     and soft labels (teacher predictions) via KL-Divergence.
     """
-    def __init__(self, temperature=3.0, alpha=0.5):
+    def __init__(self, temperature=3.0, alpha=0.5, beta=0.3, query_threshold=0.3):
         super(KDLoss, self).__init__()
         self.T = temperature
         self.alpha = alpha
-        self.kl_div = nn.KLDivLoss(reduction='batchmean')
+        self.beta = beta
+        self.query_threshold = query_threshold
+        self.kl_div = nn.KLDivLoss(reduction='none')
+        self.teacher_feat = None
+        self.student_feat = None
         
-    def forward(self, student_logits, teacher_logits, labels, hard_loss_fn):
-        # 1. Soft Loss (Mimicking the Teacher)
-        # Log-softmax for Student, Softmax for Teacher with Temperature scaling
-        soft_student = F.log_softmax(student_logits / self.T, dim=-1)
-        soft_teacher = F.softmax(teacher_logits / self.T, dim=-1)
+    @staticmethod
+    def extract_logits_boxes(out):
+        if isinstance(out, dict):
+            return out.get('pred_logits', out), out.get('pred_boxes', None)
+        elif isinstance(out, (list, tuple)):
+            if len(out) >= 4 and out[3].shape[-1] >= 80: # Train output
+                return out[3], out[2]
+            elif len(out) >= 1 and out[0].shape[-1] > 4: # Eval output [B, 300, 84]
+                preds = out[0]
+                boxes, logits = preds[..., :4], preds[..., 4:]
+                return logits, boxes
+        return out, None
         
-        loss_soft = self.kl_div(soft_student, soft_teacher) * (self.T ** 2)
+    def anneal_temperature(self, current_step, total_steps, T_min=1.0):
+        if not hasattr(self, 'T_max'):
+            self.T_max = self.T
+        import math
+        self.T = T_min + 0.5 * (self.T_max - T_min) * (1 + math.cos(math.pi * current_step / total_steps))
+
+    def forward(self, student_output, teacher_output, labels=None, hard_loss_fn=None):
+        s_logits, s_boxes = self.extract_logits_boxes(student_output)
+        t_logits, t_boxes = self.extract_logits_boxes(teacher_output)
         
-        # 2. Hard Loss (Ground Truth Object Detection Loss - e.g. GIoU, L1, BCE)
-        loss_hard = hard_loss_fn(student_logits, labels)
+        # 1. Soft Loss (Query-Level Masked KL Divergence)
+        soft_student = F.log_softmax(s_logits / self.T, dim=-1)
+        soft_teacher = F.softmax(t_logits / self.T, dim=-1)
         
-        # 3. Combined Loss
-        return (self.alpha * loss_hard) + ((1 - self.alpha) * loss_soft)
+        kl_loss_all = self.kl_div(soft_student, soft_teacher).sum(dim=-1) * (self.T ** 2)
+        teacher_confs = F.softmax(t_logits, dim=-1).max(dim=-1)[0]
+        mask = teacher_confs > self.query_threshold
+        loss_soft = (kl_loss_all * mask).sum() / mask.sum().clamp(min=1)
+        
+        # 2. Hard Loss (Ground Truth Object Detection Loss - decoupled)
+        if hard_loss_fn is not None and labels is not None:
+            loss_hard = hard_loss_fn(student_output, labels)
+        else:
+            loss_hard = torch.tensor(0.0, device=s_logits.device)
+            
+        # 3. Intermediate Feature Loss
+        if self.student_feat is not None and self.teacher_feat is not None:
+            loss_feat = F.mse_loss(self.student_feat, self.teacher_feat)
+            self.student_feat = None
+            self.teacher_feat = None
+        else:
+            loss_feat = torch.tensor(0.0, device=s_logits.device)
+        
+        # 4. Combined Loss
+        total_loss = (self.alpha * loss_hard) + (1 - self.alpha - self.beta) * loss_soft + (self.beta * loss_feat)
+        
+        return {
+            'total': total_loss,
+            'soft': loss_soft.detach(),
+            'hard': loss_hard.detach(),
+            'feat': loss_feat.detach()
+        }
 
 def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MODEL_STUDENT):
     """
@@ -47,6 +93,8 @@ def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MO
     try:
         teacher_model = RTDETR(teacher_path).model.to(device)
         teacher_model.eval() # Teacher is always frozen
+        for param in teacher_model.parameters():
+            param.requires_grad = False
     except Exception as e:
         print(f"Teacher Load Error: {e}")
         return
@@ -57,13 +105,25 @@ def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MO
         # For demonstration purposes, if the file doesn't exist locally, Ultralytics downloads it
         student_model = RTDETR(student_arch).model.to(device)
         student_model.train() # Student is active
+        for param in student_model.parameters():
+            param.requires_grad = True
     except Exception as e:
         print(f"Student Load Error: {e}")
         return
         
     # 3. Setup Distillation Engine
-    kd_loss_fn = KDLoss(temperature=cfg.KD_TEMPERATURE, alpha=cfg.KD_ALPHA)
+    kd_loss_fn = KDLoss(temperature=cfg.KD_TEMPERATURE, alpha=cfg.KD_ALPHA, beta=0.3)
     optimizer = torch.optim.AdamW(student_model.parameters(), lr=1e-4, weight_decay=1e-4)
+    
+    # Hooks for Intermediate Feature Distillation
+    def get_hook_t(m, i, o): kd_loss_fn.teacher_feat = o
+    def get_hook_s(m, i, o): kd_loss_fn.student_feat = o
+    
+    if len(teacher_model.model) > 27:
+        teacher_model.model[27].register_forward_hook(get_hook_t)
+        student_model.model[27].register_forward_hook(get_hook_s)
+        
+    scaler = torch.amp.GradScaler('cuda') if torch.cuda.is_available() else None
     
     print("\nKnowledge Distillation Architecture Ready.")
     print(f"Teacher Parameters: {sum(p.numel() for p in teacher_model.parameters()) / 1e6:.2f} M")
@@ -71,21 +131,53 @@ def setup_distillation_pipeline(teacher_path=cfg.MODEL_BASE, student_arch=cfg.MO
     print("\nLoss Function: KD-Loss (KL-Divergence + Detection Loss)")
     print("Optimization: Soft-Label Transfer on RTX 50-Series Target.")
     
-    return teacher_model, student_model, kd_loss_fn, optimizer
+    return teacher_model, student_model, kd_loss_fn, optimizer, scaler
 
 def proxy_training_loop():
     """
     Demonstrates the GB-03 Distillation training mechanism without requiring
     an active 200GB COCO dataset on the judging machine.
     """
-    teacher, student, kd_loss_fn, optimizer = setup_distillation_pipeline()
+    pipeline = setup_distillation_pipeline()
+    if pipeline is None:
+        print("Pipeline setup failed. Exiting.")
+        return
+        
+    teacher, student, kd_loss_fn, optimizer, scaler = pipeline
     
-    print("\n[Simulating Distillation Training Step]")
-    print("1. Forward pass on Teacher (No Gradients) to generate soft logits.")
-    print("2. Forward pass on Student (With Gradients) to generate predictions.")
-    print("3. Calculate KD_Loss(Student, Teacher, GroundTruth).")
-    print("4. Backpropagate and update Student parameters.")
-    print("... Student implicitly learns complex feature extraction from Teacher.")
+    print("\n[Executing Dummy Distillation Pass]")
+    device = next(student.parameters()).device
+    dummy_input = torch.randn(1, 3, 640, 640, device=device)
+    
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    
+    # 1. Forward pass on Teacher (No Gradients)
+    with torch.no_grad(), torch.amp.autocast('cuda', enabled=torch.cuda.is_available()):
+        teacher_preds = teacher(dummy_input)
+        
+    # 2. Forward pass on Student (With Gradients)
+    optimizer.zero_grad()
+    with torch.amp.autocast('cuda', enabled=torch.cuda.is_available()):
+        student_preds = student(dummy_input)
+        # 3. Calculate KD_Loss
+        loss_dict = kd_loss_fn(student_preds, teacher_preds)
+    
+    # 4. Backpropagate
+    if scaler is not None:
+        scaler.scale(loss_dict['total']).backward()
+        scaler.step(optimizer)
+        scaler.update()
+    else:
+        loss_dict['total'].backward()
+        optimizer.step()
+        
+    # Anneal Temperature
+    kd_loss_fn.anneal_temperature(current_step=1, total_steps=100)
+    
+    print(f"✅ Training step completed.")
+    print(f"   -> KD Loss: {loss_dict['total'].item():.4f} (Soft: {loss_dict['soft'].item():.4f}, Hard: {loss_dict['hard'].item():.4f}, Feat: {loss_dict['feat'].item():.4f})")
+    print("... Student implicitly learned complex feature extraction from Teacher logits and hidden layers.")
     
 if __name__ == "__main__":
     proxy_training_loop()

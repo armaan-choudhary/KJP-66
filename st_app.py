@@ -61,9 +61,9 @@ def main():
     with st.sidebar:
         st.image("https://img.icons8.com/fluency/96/prism.png", width=80)
         st.title("PRISMNET")
-        render_badge()
-        st.markdown("---")
         mode = st.radio("SELECT PIPELINE", ["Baseline (Unoptimized)", "PrismNet (Optimized)", "TensorRT (Accelerated)"], index=2)
+        render_badge(mode)
+        st.markdown("---")
         thresh = st.slider("TOKEN SENSITIVITY", 0.4, 0.95, cfg.DEFAULT_THRESHOLD)
         cam_id = st.number_input("CAM ID", 0, 5, cfg.DEFAULT_CAM_ID)
         if st.button("RELOAD SYSTEM", use_container_width=True):
@@ -76,7 +76,13 @@ def main():
         prism_res.threshold = thresh
         if trt_res is not None: trt_res.threshold = thresh
         prism_res.threshold = thresh
-        cap, _ = get_system_cam(cam_id)
+        if "cap" not in st.session_state or st.session_state.get("cam_id") != cam_id:
+            if "cap" in st.session_state and st.session_state.cap is not None:
+                st.session_state.cap.release()
+            st.session_state.cap, _ = get_system_cam(cam_id)
+            st.session_state.cam_id = cam_id
+            
+        cap = st.session_state.cap
         if not cap: st.error("No Camera Detection"); return
 
     # 4. LAYOUT
@@ -158,6 +164,8 @@ def main():
             time.sleep(0.01)
 
     except Exception as e:
+        if "ScriptControl" in str(type(e)) or "Rerun" in str(type(e)):
+            raise e
         st.error(f"System Error: {e}")
 
 if __name__ == "__main__":
