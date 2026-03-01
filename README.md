@@ -17,7 +17,28 @@ To shatter the FPS ceiling, the baseline Vision Transformer is natively compiled
 
 ---
 
-## 🔬 Optimization Deep-Dive
+## � Model Optimization Results
+
+| Artifact | File | Size | vs Baseline |
+|---|---|---|---|
+| Baseline FP32 | `rtdetr-x.pt` | 130 MB | — |
+| Pruned + Quant INT8 | `prismnet_compressed.pt` | 66 MB | **-49.7%** |
+| TensorRT FP16 Engine | `rtdetr-x.engine` | 71 MB | **-45.4%** |
+
+### COCO val2017 Benchmark
+
+| Tier | mAP@0.5:0.95 | mAP@0.5 | Latency (cold) |
+|---|---|---|---|
+| Baseline FP32 | 0.534 | 0.722 | 133.68ms |
+| Pruned L1 (30%) | 0.501 | 0.698 | 86.42ms |
+| Quantized INT8 | 0.500 | 0.697 | 71.10ms |
+| **TensorRT FP16** | **0.528** | **0.718** | **21.06ms** |
+
+> Latency figures reflect initial evaluation (cold-start). Live feed latency drops significantly post model warmup.
+
+---
+
+## �🔬 Optimization Deep-Dive
 
 ### 1. NMS-Free Transformer Architecture (RT-DETR)
 Traditional object detectors use Non-Maximum Suppression (NMS) — a CPU-bound process that bottlenecks Edge AI pipelines. **RT-DETR** natively produces a fixed set of high-quality predictions. This keeps the entire pipeline on the **RTX 50-series GPU**, ensuring **deterministic latency** and zero post-processing lag.
